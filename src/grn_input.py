@@ -1,3 +1,4 @@
+TEST = False
 if __name__ == '__main__':
     import constant
     import numpy
@@ -6,13 +7,6 @@ if __name__ == '__main__':
     import os
     print('INFO: grn_input.py testing...')
     TEST = True # mark for test info and test code
-
-# def convert_number(number_str):
-#         if '.' in number_str:
-#             return float(number_str)
-#         else:
-#             return int(number_str)
-
 
 def depth_minmax():
     # get min and max depth from file "receiving_fault.dat", return array (depth_min, depth_max)
