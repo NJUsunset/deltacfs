@@ -1,15 +1,14 @@
 TEST = False
 if __name__ == '__main__':
     import constant
-    import numpy
-    import pandas
-    import math
-    import os
     print('INFO: grn_input.py testing...')
     TEST = True # mark for test info and test code
 
 def depth_minmax():
     # get min and max depth from file "receiving_fault.dat", return array (depth_min, depth_max)
+    import pandas
+    import math
+    import numpy
 
     columns = ['n', 'O_lat', 'O_lon', 'O_depth', 'length', 'width', 'strike', 'dip']
     rf_data = pandas.read_csv(constant.CONFIG_PREFIX + 'receiving_fault.dat', sep=r'\s+', names=columns, comment='#')
@@ -48,6 +47,7 @@ def calculation_setting():
 
 def build_grn_input(depth_number, calculation_settings, override):
     # build up psgrn input file in specified depth
+    import os
 
     dir = constant.TEMP_PREFIX + 'grn/' + str(depth_number)
 
@@ -88,6 +88,7 @@ def build_grn_input(depth_number, calculation_settings, override):
 
 
 if TEST:
+    import numpy
     depth_number = 1
     depth_step, calculation_settings = calculation_setting()
     depth_range = depth_minmax()

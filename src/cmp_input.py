@@ -1,25 +1,24 @@
 TEST = False
 if __name__ == '__main__':
     import constant
-    import math
-    import os
-    from pyproj import Geod
     print('INFO: cmp_input.py testing...')
     TEST = True
 
 
 def observation_array_on_fault(receiving_fault_array, target_depth, observation_distance):
     # Generate points along the fault plane at a specified depth with a given horizontal spacing.
+    import math
+    from pyproj import Geod
     
     observation_points = []
 
-    O_lon = receiving_fault_array[1]
-    O_lat = receiving_fault_array[2]
-    O_depth = receiving_fault_array[3]
-    length = receiving_fault_array[4]
-    width = receiving_fault_array[5]
-    strike = receiving_fault_array[6]
-    dip_angle = receiving_fault_array[7]
+    O_lon = float(receiving_fault_array[1])
+    O_lat = float(receiving_fault_array[2])
+    O_depth = float(receiving_fault_array[3])
+    length = float(receiving_fault_array[4])
+    width = float(receiving_fault_array[5])
+    strike = float(receiving_fault_array[6])
+    dip_angle = float(receiving_fault_array[7])
 
     geod = Geod(ellps="WGS84")
 
@@ -88,6 +87,7 @@ if TEST:
 
 def build_cmp_input(depth_number, observation_distance, configs, override):
     # build up pscmp input file
+    import os
 
     dir = constant.TEMP_PREFIX + 'cmp/' + str(depth_number)
     
@@ -110,7 +110,7 @@ def build_cmp_input(depth_number, observation_distance, configs, override):
             if not stripped_line or stripped_line.startswith('#'):
                 continue
             split_line = stripped_line.split()
-            observation_points = observation_array_on_fault(split_line, depth_list(depth_number), observation_distance)
+            observation_points = observation_array_on_fault(split_line, depth_list[depth_number], observation_distance)
             for point in observation_points:
                 observation_array.append(observation_points)
 
@@ -163,4 +163,4 @@ def build_cmp_input(depth_number, observation_distance, configs, override):
 
 
 if TEST:
-    a = 0
+    build_cmp_input(depth_number, 1.0, configs, True)
