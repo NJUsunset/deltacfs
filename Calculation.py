@@ -9,6 +9,7 @@ CONFIG_PREFIX = './config/'
 TEMP_PREFIX = './temp/'
 SRC_PREFIX = './src/'
 OUTPUT_PREFIX = './output/'
+LOG_PREFIX = './logs/'
 
 def depth_minmax():
     # get min and max depth from file "receiving_fault.dat", return array (depth_min, depth_max)
@@ -204,6 +205,7 @@ def build_cmp_input(depth, observation_distance, configs):
 
 
 if __name__ == '__main__':
+    # os.makedirs(LOG_PREFIX, exist_ok=True)
     print('INFO: setup all files in config folder before running this script.')
     print('INFO: calculate.py running...')
     ifgrn = input('INFO: Do you want to calculate green function set? (y/no-override/n): ')
@@ -258,10 +260,10 @@ if __name__ == '__main__':
         os.makedirs(TEMP_PREFIX + 'cmp_input/', exist_ok=True)
         for depth in depth_array:
             build_cmp_input(depth, observation_distance, configs)
-            state = os.system('sh ./src/pscmp.sh ' + TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp')
-            if state != 0:
-                print(f'ERROR: pscmp.sh failed for depth {depth}.')
-                os._exit(1)
-            print(f'INFO: pscmp.sh finished for depth {depth}.')
+            # state = os.system('sh ./src/pscmp.sh ' + TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp')
+            # if state != 0:
+            #     print(f'ERROR: pscmp.sh failed for depth {depth}.')
+            #     os._exit(1)
+            # print(f'INFO: pscmp.sh finished for depth {depth}.')
     
     print('INFO: calculate.py finished.')
