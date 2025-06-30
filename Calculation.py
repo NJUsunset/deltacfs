@@ -47,14 +47,14 @@ def calculation_setting():
 def build_grn_input(depth, calculation_settings):
     # build up psgrn input file in specified depth
 
-    dir = TEMP_PREFIX + 'grn_input/' + str(depth)
+    dir = TEMP_PREFIX + 'grn/' + str(depth)
 
     os.makedirs(dir, exist_ok=True)
 
     # override option will override any possible exist former file in temp/grn/
     # or the function will skip writing if there is any file in target folder
     if (len(os.listdir(dir)) != 0):
-        print(f'INFO: grn input file for depth {depth} already exists, skipping...')
+        print(f'INFO: grn file for depth {depth} already exists, skipping...')
         return 0
     
     # compose grn input file
@@ -87,13 +87,13 @@ def observation_array_on_fault(receiving_fault_array, target_depth, observation_
     
     observation_points = []
 
-    O_lon = receiving_fault_array[1]
-    O_lat = receiving_fault_array[2]
-    O_depth = receiving_fault_array[3]
-    length = receiving_fault_array[4]
-    width = receiving_fault_array[5]
-    strike = receiving_fault_array[6]
-    dip_angle = receiving_fault_array[7]
+    O_lon = float(receiving_fault_array[1])
+    O_lat = float(receiving_fault_array[2])
+    O_depth = float(receiving_fault_array[3])
+    length = float(receiving_fault_array[4])
+    width = float(receiving_fault_array[5])
+    strike = float(receiving_fault_array[6])
+    dip_angle = float(receiving_fault_array[7])
 
     geod = Geod(ellps="WGS84")
 
@@ -132,20 +132,18 @@ def config():
 
     return configs
 
-def build_cmp_input(depth, observation_distance, configs, override):
+def build_cmp_input(depth, observation_distance, configs):
     # build up pscmp input file
 
     dir = TEMP_PREFIX + 'cmp/' + str(depth)
-    
+
+    os.makedirs(dir, exist_ok=True)
+
     # override option will override any possible exist former file in temp/cmp/
     # or the function will skip writing if there is any file in target folder
-    if override:
-        os.system(f'[ -d "{dir}" ] || mkdir -p "{dir}"')
-    else:
-        if (len(os.listdir(dir)) != 0):
-            return 0
-        else:
-            os.system(f'[ -d "{dir}" ] || mkdir -p "{dir}"')
+    if (len(os.listdir(dir)) != 0):
+        print(f'INFO: cmp file for depth {depth} already exists, skipping...')
+        return 0
     
     # calculate observation array
     observation_array = []
@@ -159,7 +157,7 @@ def build_cmp_input(depth, observation_distance, configs, override):
             for point in observation_points:
                 observation_array.append(observation_points)
 
-    with open(TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp', 'w') as cmp_input, \
+    with open(TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp', 'a') as cmp_input, \
         open(CONFIG_PREFIX + 'source_fault.dat', 'r') as source_fault:
         cmp_input.write('0\n')
         cmp_input.write(f'{len(observation_array)}\n')
@@ -220,26 +218,29 @@ if __name__ == '__main__':
         print('ERROR: Bad input')
         os._exit(1)
 
+    depth_range = depth_minmax()
+    depth_step, calculation_settings = calculation_setting()
+    configs = config()
+    observation_distance = depth_step
+
+    depth_array = []
+    depth = depth_range[0]
+    while depth <= depth_range[1]:
+        depth_array.append(depth)
+        depth += depth_step
+
     if ifgrn != 'n':
         print('INFO: grn_input.py running...')
-        depth_range = depth_minmax()
-        depth_step, calculation_settings = calculation_setting()
-        depth_array = []
-        depth = depth_range[0]
-        while depth <= depth_range[1]:
-            depth_array.append(depth)
-            depth += depth_step
-
 
         if ifgrn == 'y':
             print('INFO: Overriding existing green function set...')
             shutil.rmtree(TEMP_PREFIX + 'grn/', ignore_errors=True)
             shutil.rmtree(TEMP_PREFIX + 'grn_input/', ignore_errors=True)
         
+        os.makedirs(TEMP_PREFIX + 'grn_input/', exist_ok=True)
         for depth in depth_array:
-            dir = build_grn_input(depth, calculation_settings)
-            state = 0
-            state = os.system('sh ./src/psgrn.sh ' + dir + '.grn')
+            build_grn_input(depth, calculation_settings)
+            state = os.system('sh ./src/psgrn.sh ' + TEMP_PREFIX + 'grn_input/' + str(depth) + '.grn')
             if state != 0:
                 print(f'ERROR: psgrn.sh failed for depth {depth}.')
                 os._exit(1)
@@ -248,10 +249,19 @@ if __name__ == '__main__':
 
     if ifcmp != 'n':
         print('INFO: cmp_input.py running...')
+
         if ifcmp == 'y':
             print('INFO: Overriding existing deltacfs...')
             shutil.rmtree(TEMP_PREFIX + 'cmp/', ignore_errors=True)
             shutil.rmtree(TEMP_PREFIX + 'cmp_input/', ignore_errors=True)
-        build_cmp_input()
+        
+        os.makedirs(TEMP_PREFIX + 'cmp_input/', exist_ok=True)
+        for depth in depth_array:
+            build_cmp_input(depth, observation_distance, configs)
+            state = os.system('sh ./src/pscmp.sh ' + TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp')
+            if state != 0:
+                print(f'ERROR: pscmp.sh failed for depth {depth}.')
+                os._exit(1)
+            print(f'INFO: pscmp.sh finished for depth {depth}.')
     
     print('INFO: calculate.py finished.')
