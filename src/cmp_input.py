@@ -1,14 +1,15 @@
 TEST = False
+from src.constant import *
+from pyproj import Geod
+import math
+import os
 if __name__ == '__main__':
-    import constant
     print('INFO: cmp_input.py testing...')
     TEST = True
 
 
 def observation_array_on_fault(receiving_fault_array, target_depth, observation_distance):
     # Generate points along the fault plane at a specified depth with a given horizontal spacing.
-    import math
-    from pyproj import Geod
     
     observation_points = []
 
@@ -27,7 +28,6 @@ def observation_array_on_fault(receiving_fault_array, target_depth, observation_
     width_offset = depth_diff / math.sin(math.radians(dip_angle))
     
     if (depth_diff < 0) or (width_offset > width):
-        if TEST: print(f'WARNING: subfault number {receiving_fault_array[0]} do not cover targetted depth when calculating observation array.')
         return observation_points
 
     # Determine the starting point's projection at the target depth
@@ -63,14 +63,12 @@ def config():
     # read config.dat file and return a list with info
     configs = []
 
-    with open(constant.CONFIG_PREFIX + 'config.dat', 'r') as calculation_setting:
+    with open(CONFIG_PREFIX + 'config.dat', 'r') as calculation_setting:
         for line in calculation_setting:
             if not line.strip() or line.startswith('#'):
                 continue
             values = line.strip().split()
             configs.append(values)
-
-    if TEST: print('INFO: print calculation_setting output.'); print(configs)
 
     return configs
 
@@ -85,37 +83,33 @@ if TEST:
                   1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
 
 
-def build_cmp_input(depth_number, observation_distance, configs, override):
+def build_cmp_input(depth, observation_distance, configs):
     # build up pscmp input file
-    import os
 
-    dir = constant.TEMP_PREFIX + 'cmp/' + str(depth_number)
-    
+    dir = TEMP_PREFIX + 'cmp/' + str(depth)
+
+    os.makedirs(dir, exist_ok=True)
+
     # override option will override any possible exist former file in temp/cmp/
     # or the function will skip writing if there is any file in target folder
-    if override:
-        os.system(f'[ -d "{dir}" ] || mkdir -p "{dir}"')
-    else:
-        if (len(os.listdir(dir)) != 0):
-            if TEST: print(f'WARNING: file exist when building pscmp input file for depth number {depth_number}, skip building...')
-            return 0
-        else:
-            os.system(f'[ -d "{dir}" ] || mkdir -p "{dir}"')
+    if (len(os.listdir(dir)) != 0):
+        print(f'INFO: cmp file for depth {depth} already exists, skipping...')
+        return 0
     
     # calculate observation array
     observation_array = []
-    with open(constant.CONFIG_PREFIX + 'receiving_fault.dat', 'r') as receiving_fault:
+    with open(CONFIG_PREFIX + 'receiving_fault.dat', 'r') as receiving_fault:
         for line in receiving_fault:
             stripped_line = line.strip()
             if not stripped_line or stripped_line.startswith('#'):
                 continue
             split_line = stripped_line.split()
-            observation_points = observation_array_on_fault(split_line, depth_list[depth_number], observation_distance)
+            observation_points = observation_array_on_fault(split_line, depth, observation_distance)
             for point in observation_points:
                 observation_array.append(observation_points)
 
-    with open(constant.TEMP_PREFIX + 'cmp_input/' + str(depth_number) + '.cmp', 'w') as cmp_input, \
-        open(constant.CONFIG_PREFIX + 'source_fault.dat', 'r') as source_fault:
+    with open(TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp', 'a') as cmp_input, \
+        open(CONFIG_PREFIX + 'source_fault.dat', 'r') as source_fault:
         cmp_input.write('0\n')
         cmp_input.write(f'{len(observation_array)}\n')
 
@@ -125,7 +119,7 @@ def build_cmp_input(depth_number, observation_distance, configs, override):
             cmp_input.write(f'({point[0]}, {point[1]}) ')
             if (newline_count == 6): cmp_input.write('\n')
         
-        cmp_input.write(f'{configs[0][0]}\n')
+        cmp_input.write(f'\n{configs[0][0]}\n')
         if (configs[0][0] == 1): cmp_input.write(f'{configs[0][0]} {configs[0][1]} {configs[0][2]} {configs[0][3]}\n')
         cmp_input.write(f'{configs[1][0]}\n')
         if (configs[1][0] == 1): 
@@ -133,7 +127,7 @@ def build_cmp_input(depth_number, observation_distance, configs, override):
             cmp_input.write(f'{configs[1][3]} {configs[1][4]} {configs[1][5]} ')
             cmp_input.write(f'{configs[1][6]} {configs[1][7]} {configs[1][8]}\n')
         
-        cmp_input.write(f"'{constant.TEMP_PREFIX}cmp/{depth_number}/'\n")
+        cmp_input.write(f"'{TEMP_PREFIX}cmp/{depth}/'\n")
         cmp_input.write('0 0 0\n')
         cmp_input.write("'ux.dat' 'uy.dat' 'uz.dat'\n")
         cmp_input.write('0 0 0 0 0 0\n')
@@ -147,7 +141,7 @@ def build_cmp_input(depth_number, observation_distance, configs, override):
             cmp_input.write(f'{configs[3 + snapshot_count][0]} {configs[3 + snapshot_count][1]}\n')
             snapshot_count += 1
         
-        cmp_input.write(f"'{constant.TEMP_PREFIX}grn/{depth_number}/'\n")
+        cmp_input.write(f"'{TEMP_PREFIX}grn/{depth}/'\n")
         cmp_input.write("'uz' 'ur' 'ut'\n")
         cmp_input.write("'szz' 'srr' 'stt' 'szr' 'srt' 'stz'\n")
         cmp_input.write("'tr' 'tt' 'rot' 'gd' 'gr'\n")

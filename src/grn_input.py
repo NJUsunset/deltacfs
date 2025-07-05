@@ -1,17 +1,18 @@
 TEST = False
+import pandas
+from src.constant import *
+import math
+import os
+import numpy
 if __name__ == '__main__':
-    import constant
     print('INFO: grn_input.py testing...')
     TEST = True # mark for test info and test code
 
 def depth_minmax():
     # get min and max depth from file "receiving_fault.dat", return array (depth_min, depth_max)
-    import pandas
-    import math
-    import numpy
 
     columns = ['n', 'O_lat', 'O_lon', 'O_depth', 'length', 'width', 'strike', 'dip']
-    rf_data = pandas.read_csv(constant.CONFIG_PREFIX + 'receiving_fault.dat', sep=r'\s+', names=columns, comment='#')
+    rf_data = pandas.read_csv(CONFIG_PREFIX + 'receiving_fault.dat', sep=r'\s+', names=columns, comment='#')
 
     O_depth = rf_data['O_depth']
     width = rf_data['width']
@@ -32,7 +33,7 @@ def calculation_setting():
 
     calculation_settings = []
 
-    with open(constant.CONFIG_PREFIX + 'calculation_setting.dat', 'r') as calculation_setting:
+    with open(CONFIG_PREFIX + 'calculation_setting.dat', 'r') as calculation_setting:
         for line in calculation_setting:
             if not line.strip() or line.startswith('#'):
                 continue
@@ -45,33 +46,29 @@ def calculation_setting():
     return depth_step, calculation_settings
 
 
-def build_grn_input(depth_number, calculation_settings, override):
+def build_grn_input(depth, calculation_settings):
     # build up psgrn input file in specified depth
-    import os
 
-    dir = constant.TEMP_PREFIX + 'grn/' + str(depth_number)
+    dir = TEMP_PREFIX + 'grn/' + str(depth)
+
+    os.makedirs(dir, exist_ok=True)
 
     # override option will override any possible exist former file in temp/grn/
     # or the function will skip writing if there is any file in target folder
-    if override:
-        os.system(f'[ -d "{dir}" ] || mkdir -p "{dir}"')
-    else:
-        if (len(os.listdir(dir)) != 0):
-            if TEST: print(f'WARNING: file exist when building psgrn input file for depth number {depth_number}, skip building...')
-            return 0
-        else:
-            os.system(f'[ -d "{dir}" ] || mkdir -p "{dir}"')
+    if (len(os.listdir(dir)) != 0):
+        print(f'INFO: grn file for depth {depth} already exists, skipping...')
+        return 0
     
     # compose grn input file
-    with open(constant.TEMP_PREFIX + 'grn_input/' + str(depth_number) + '.grn', 'w') as grn_input, \
-        open(constant.CONFIG_PREFIX + 'model.dat', 'r') as model:
-        grn_input.write(f'{depth_list[depth_number]} {calculation_settings[0][1]} \n')
+    with open(TEMP_PREFIX + 'grn_input/' + str(depth) + '.grn', 'a') as grn_input, \
+        open(CONFIG_PREFIX + 'model.dat', 'r') as model:
+        grn_input.write(f'{depth} {calculation_settings[0][1]} \n')
         grn_input.write(f'{calculation_settings[1][0]} {calculation_settings[1][1]} {calculation_settings[1][2]} {calculation_settings[1][3]}\n')
         grn_input.write(f'{calculation_settings[2][0]} {calculation_settings[2][1]} {calculation_settings[2][2]}\n')
         grn_input.write(f'{calculation_settings[3][0]} {calculation_settings[3][1]}\n')
         grn_input.write(f'{calculation_settings[4][0]}\n')
         grn_input.write(f'{calculation_settings[5][0]}\n')
-        grn_input.write(f"'{constant.TEMP_PREFIX}grn/{depth_number}/'\n")
+        grn_input.write(f"'{TEMP_PREFIX}grn/{depth}/'\n")
         grn_input.write("'uz' 'ur' 'ut'\n" \
                         "'szz' 'srr' 'stt' 'szr' 'srt' 'stz'\n" \
                         "'tr' 'tt' 'rot' 'gd' 'gr'\n")
@@ -84,11 +81,12 @@ def build_grn_input(depth_number, calculation_settings, override):
             cleaned_line = ' '.join(stripped_line.split())
             grn_input.write(cleaned_line + '\n')
 
-    if TEST: print(f'INFO: building psgrn input file for depth {depth_number}...')
+    if TEST: print(f'INFO: building psgrn input file for depth {depth}...')
+
+    return dir
 
 
 if TEST:
-    import numpy
     depth_number = 1
     depth_step, calculation_settings = calculation_setting()
     depth_range = depth_minmax()
