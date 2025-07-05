@@ -1,12 +1,10 @@
-TEST = False
-from src.constant import *
+from src import constant
 from pyproj import Geod
 import math
 import os
-if __name__ == '__main__':
-    print('INFO: cmp_input.py testing...')
-    TEST = True
+import logging
 
+cmp_log = logging.getLogger('main.cmp_input')
 
 def observation_array_on_fault(receiving_fault_array, target_depth, observation_distance):
     # Generate points along the fault plane at a specified depth with a given horizontal spacing.
@@ -45,25 +43,11 @@ def observation_array_on_fault(receiving_fault_array, target_depth, observation_
     return observation_points
 
 
-if TEST:
-    receiving_fault_array = [1, 120.0, 30.0, 5.0, 10.0, 5.0, 45.0, 30.0]
-    target_depth = 30.0
-    observation_distance = 1.0
-
-    # Generate points along the fault
-    points = observation_array_on_fault(receiving_fault_array, target_depth, observation_distance)
-
-    # Output the generated points
-    print("Generated points along the fault:")
-    for point in points:
-        print(f"Longitude: {point[0]:.6f}, Latitude: {point[1]:.6f}")
-
-
 def config():
     # read config.dat file and return a list with info
     configs = []
 
-    with open(CONFIG_PREFIX + 'config.dat', 'r') as calculation_setting:
+    with open(constant.CONFIG_PREFIX + 'config.dat', 'r') as calculation_setting:
         for line in calculation_setting:
             if not line.strip() or line.startswith('#'):
                 continue
@@ -73,32 +57,22 @@ def config():
     return configs
 
 
-if TEST:
-    configs = config()
-
-if TEST:
-    depth_number = 1
-    depth_list = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, \
-                  0.7, 0.8, 0.9, 1.0, 1.1 ,1.2 ,1.3, \
-                  1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
-
-
 def build_cmp_input(depth, observation_distance, configs):
     # build up pscmp input file
 
-    dir = TEMP_PREFIX + 'cmp/' + str(depth)
+    dir = constant.TEMP_PREFIX + 'cmp/' + str(depth)
 
     os.makedirs(dir, exist_ok=True)
 
     # override option will override any possible exist former file in temp/cmp/
     # or the function will skip writing if there is any file in target folder
     if (len(os.listdir(dir)) != 0):
-        print(f'INFO: cmp file for depth {depth} already exists, skipping...')
+        cmp_log.info(f'cmp file for depth {depth} already exists, skipping...')
         return 0
     
     # calculate observation array
     observation_array = []
-    with open(CONFIG_PREFIX + 'receiving_fault.dat', 'r') as receiving_fault:
+    with open(constant.CONFIG_PREFIX + 'receiving_fault.dat', 'r') as receiving_fault:
         for line in receiving_fault:
             stripped_line = line.strip()
             if not stripped_line or stripped_line.startswith('#'):
@@ -108,8 +82,8 @@ def build_cmp_input(depth, observation_distance, configs):
             for point in observation_points:
                 observation_array.append(observation_points)
 
-    with open(TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp', 'a') as cmp_input, \
-        open(CONFIG_PREFIX + 'source_fault.dat', 'r') as source_fault:
+    with open(constant.TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp', 'a') as cmp_input, \
+        open(constant.CONFIG_PREFIX + 'source_fault.dat', 'r') as source_fault:
         cmp_input.write('0\n')
         cmp_input.write(f'{len(observation_array)}\n')
 
@@ -127,7 +101,7 @@ def build_cmp_input(depth, observation_distance, configs):
             cmp_input.write(f'{configs[1][3]} {configs[1][4]} {configs[1][5]} ')
             cmp_input.write(f'{configs[1][6]} {configs[1][7]} {configs[1][8]}\n')
         
-        cmp_input.write(f"'{TEMP_PREFIX}cmp/{depth}/'\n")
+        cmp_input.write(f"'{constant.TEMP_PREFIX}cmp/{depth}/'\n")
         cmp_input.write('0 0 0\n')
         cmp_input.write("'ux.dat' 'uy.dat' 'uz.dat'\n")
         cmp_input.write('0 0 0 0 0 0\n')
@@ -141,7 +115,7 @@ def build_cmp_input(depth, observation_distance, configs):
             cmp_input.write(f'{configs[3 + snapshot_count][0]} {configs[3 + snapshot_count][1]}\n')
             snapshot_count += 1
         
-        cmp_input.write(f"'{TEMP_PREFIX}grn/{depth}/'\n")
+        cmp_input.write(f"'{constant.TEMP_PREFIX}grn/{depth}/'\n")
         cmp_input.write("'uz' 'ur' 'ut'\n")
         cmp_input.write("'szz' 'srr' 'stt' 'szr' 'srt' 'stz'\n")
         cmp_input.write("'tr' 'tt' 'rot' 'gd' 'gr'\n")
@@ -153,8 +127,4 @@ def build_cmp_input(depth, observation_distance, configs):
             cleaned_line = ' '.join(stripped_line.split())
             cmp_input.write(cleaned_line + '\n')
 
-    if TEST: print(f'INFO: building pscmp input file for depth {depth_number}...')
-
-
-if TEST:
-    build_cmp_input(depth_number, 1.0, configs, True)
+    cmp_log.info(f'building pscmp input file for depth {depth}...')
