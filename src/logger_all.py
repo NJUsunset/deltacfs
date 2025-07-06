@@ -1,7 +1,7 @@
 import logging
 import subprocess
 import threading
-import datetime
+from datetime import datetime
 import os
 from src import constant
 

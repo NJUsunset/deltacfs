@@ -1,5 +1,5 @@
 #!/usr/bin/bash
 echo 'cleaning temp file and log...'
 rm -r ./temp/
-rm ./output.log
+rm -r ./logs/
 echo 'Done.'

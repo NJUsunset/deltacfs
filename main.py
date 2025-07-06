@@ -1,8 +1,5 @@
 import os
 import shutil
-from pyproj import Geod
-import logging
-import datetime
 from src import constant, grn_input, cmp_input, logger_all
 
 log = logger_all.setlogger()
@@ -11,7 +8,7 @@ log.info('calculate.py running...')
 ifgrn = logger_all.logged_input('Do you want to calculate green function set? (y/no-override/n): \n', log)
 ifcmp = logger_all.logged_input('Do you want to calculate deltacfs? (y/no-override/n): \n', log)
 
-depth_range = cmp_input.depth_minmax()
+depth_range = grn_input.depth_minmax()
 depth_step, calculation_settings = grn_input.calculation_setting()
 configs = cmp_input.config()
 observation_distance = depth_step / 5.0
@@ -33,7 +30,7 @@ if ifgrn != 'n':
     os.makedirs(constant.TEMP_PREFIX + 'grn_input/', exist_ok=True)
     for depth in depth_array:
         grn_input.build_grn_input(depth, calculation_settings)
-        state = os.system('bash ./src/psgrn.sh ' + constant.TEMP_PREFIX + 'grn_input/' + str(depth) + '.grn')
+        state = logger_all.logged_run(log, ['bash', './src/psgrn.sh', constant.TEMP_PREFIX + 'grn_input/' + str(depth) + '.grn'])
         if state != 0:
             log.error(f'psgrn.sh failed for depth {depth}.')
             os._exit(1)
@@ -50,8 +47,8 @@ if ifcmp != 'n':
     
     os.makedirs(constant.TEMP_PREFIX + 'cmp_input/', exist_ok=True)
     for depth in depth_array:
-        grn_input.build_cmp_input(depth, observation_distance, configs)
-        state = os.system('bash ./src/pscmp.sh ' + constant.TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp')
+        cmp_input.build_cmp_input(depth, observation_distance, configs)
+        state = logger_all.logged_run(log, ['bash', './src/pscmp.sh', constant.TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp'])
         if state != 0:
             log.error(f'pscmp.sh failed for depth {depth}.')
             os._exit(1)
