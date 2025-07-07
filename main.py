@@ -1,10 +1,12 @@
-import os
-import shutil
 from src import constant, grn_input, cmp_input, logger_all
+from shutil import rmtree
+import os
 
-log = logger_all.setlogger()
-log.info('setup all files in config folder before running this script.')
-log.info('calculate.py running...')
+TEST = True
+
+log = logger_all.setlogger(logger_all.Log_level.DEBUG if TEST else logger_all.Log_level.INFO)
+logger_all.logged_print('setup all files in config folder before running this script.', log)
+logger_all.logged_print('calculate.py running...', log)
 ifgrn = logger_all.logged_input('Do you want to calculate green function set? (y/no-override/n): \n', log)
 ifcmp = logger_all.logged_input('Do you want to calculate deltacfs? (y/no-override/n): \n', log)
 
@@ -20,12 +22,12 @@ while depth <= depth_range[1]:
     depth += depth_step
 
 if ifgrn != 'n':
-    log.info('grn_input.py running...')
+    logger_all.logged_print('grn_input.py running...', log)
 
     if ifgrn == 'y':
         log.info('Overriding existing green function set...')
-        shutil.rmtree(constant.TEMP_PREFIX + 'grn/', ignore_errors=True)
-        shutil.rmtree(constant.TEMP_PREFIX + 'grn_input/', ignore_errors=True)
+        rmtree(constant.TEMP_PREFIX + 'grn/', ignore_errors=True)
+        rmtree(constant.TEMP_PREFIX + 'grn_input/', ignore_errors=True)
     
     os.makedirs(constant.TEMP_PREFIX + 'grn_input/', exist_ok=True)
     for depth in depth_array:
@@ -38,12 +40,12 @@ if ifgrn != 'n':
         
 
 if ifcmp != 'n':
-    log.info('cmp_input.py running...')
+    logger_all.logged_print('cmp_input.py running...', log)
 
     if ifcmp == 'y':
         log.info('Overriding existing deltacfs...')
-        shutil.rmtree(constant.TEMP_PREFIX + 'cmp/', ignore_errors=True)
-        shutil.rmtree(constant.TEMP_PREFIX + 'cmp_input/', ignore_errors=True)
+        rmtree(constant.TEMP_PREFIX + 'cmp/', ignore_errors=True)
+        rmtree(constant.TEMP_PREFIX + 'cmp_input/', ignore_errors=True)
     
     os.makedirs(constant.TEMP_PREFIX + 'cmp_input/', exist_ok=True)
     for depth in depth_array:
