@@ -38,7 +38,7 @@ def initlogger(level=Log_level.INFO):
 
 
 def setlogger(name='UnknownModule'):
-    logger = logging.getLogger('main' + name)
+    logger = logging.getLogger('main.' + name)
     return logger
 
 

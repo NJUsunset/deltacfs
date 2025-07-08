@@ -1,29 +1,32 @@
 from src import constant, logger_all
-from pandas import read_csv
+from os.path import exists
 import math
 
 settings_log = logger_all.setlogger('settings')
 
 def depth_minmax():
     # get min and max depth from file "receiving_fault.dat", return array (depth_min, depth_max)
+    depth = []
+    depth_stretch = []
+    with open(constant.CONFIG_PREFIX + 'receiving_fault.dat', 'r') as receiving_fault:
+        for line in receiving_fault:
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith('#'):
+                continue
+            split_line = stripped_line.split()
+            depth.append(float(split_line[3]))
+            depth_stretch.append(float(split_line[3]) + float(split_line[5]) * math.sin(math.radians(float(split_line[7]))))
 
-    columns = ['n', 'O_lat', 'O_lon', 'O_depth', 'length', 'width', 'strike', 'dip']
-    rf_data = read_csv(constant.CONFIG_PREFIX + 'receiving_fault.dat', sep=r'\s+', names=columns, comment='#')
+    settings_log.debug(f'print depth_minmax reading result: O_depth {depth}, dip {depth_stretch}')
 
-    O_depth = rf_data['O_depth']
-    width = rf_data['width']
-    dip = rf_data['dip']
-
-
-    depth_stretch = O_depth + width * math.cos(math.radians(dip))
-    depth_min = math.floor(min([min(O_depth), min(depth_stretch)]))
-    depth_max = math.ceil(max([max(O_depth), max(depth_stretch)]))
+    depth_min = math.floor(min([min(depth), min(depth_stretch)]))
+    depth_max = math.ceil(max([max(depth), max(depth_stretch)]))
     depth_range = [depth_min, depth_max]
 
     assert depth_min >= 0, 'depth_min'
     assert depth_max > depth_min, 'depth_range'
 
-    settings_log.debug(f'print depth_minmax output: {depth_range}')
+    settings_log.debug(f'print depth_minmax calculation result: depth_stretch {depth_stretch}, depth_range {depth_range}')
 
     return depth_range
 
@@ -78,3 +81,28 @@ def config():
     settings_log.debug(f'configs: {configs}')
 
     return configs
+
+def combine_file(filename, depth):
+    
+    settings_log.debug(f'will operate file {constant.TEMP_PREFIX + 'cmp/' + str(depth) + '/' + filename}')
+    
+    assert exists(constant.TEMP_PREFIX + 'cmp/' + str(depth) + '/' + filename), f'empty output file in {depth}'
+
+    with open(constant.TEMP_PREFIX + 'cmp/' + str(depth) + '/' + filename, 'r') as read_file, \
+        open(constant.OUTPUT_PREFIX + filename, 'a') as write_file:
+        
+        with open(constant.OUTPUT_PREFIX + filename, 'r') as temp_file:
+            if (temp_file.read() == ''):
+                settings_log.debug(f'{filename} is found empty when processing depth {depth}, preparing to write title in it')
+                write_file.write('depth[km] ')
+                write_file.write(read_file.readline())
+            
+        for i, line in enumerate(read_file):
+            if i <= 2: continue
+
+            stripped_line = line.strip()
+            cleaned_line = ' '.join(stripped_line.split())
+            write_file.write(str(depth) + ' ')
+            write_file.write(cleaned_line + '\n')
+    
+    settings_log.debug(f'successfully rewrite file {filename} at depth {depth} to output file')

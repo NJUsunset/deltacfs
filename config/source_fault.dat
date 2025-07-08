@@ -38,10 +38,10 @@
 #------------------------------------------------------------------------------
   432
 #------------------------------------------------------------------------------
-# n   O_lat   O_lon   O_depth length  width strike dip   np_st np_di start_time
-#[-]  [deg]   [deg]   [km]     [km]   [km]  [deg] [deg]  [-]    [-]    [day]
-#     pos_s   pos_d   slp_stk slp_ddip open
-#     [km]    [km]    [m]       [m]     [m]
+# n   O_lat   O_lon     O_depth length  width strike dip np_st np_di start_time
+#[-]  [deg]   [deg]       [km]   [km]   [km]  [deg] [deg] [-]   [-]   [day]
+#     pos_s      pos_d     slp_stk   slp_ddip   open
+#     [km]       [km]        [m]       [m]       [m]
 #------------------------------------------------------------------------------
   1    1.7987   95.4805    0.0   44.7   24.6  299.5   11.7   1   1    0.0
       22.3582   12.2772     0.009    -0.032     0.000
