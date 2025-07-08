@@ -1,4 +1,4 @@
-import logging
+from src import logger_all
 
 CONFIG_PREFIX = './config/'
 TEMP_PREFIX = './temp/'
@@ -32,6 +32,6 @@ ANGLE1 = Range(0, 360)
 ANGLE2 = Range(-90, 90)
 ANGLE3 = Range(0, 180)
 
-constant_log = logging.getLogger('main.constant')
+constant_log = logger_all.setlogger('constant')
 
 constant_log.debug('constant module loaded')

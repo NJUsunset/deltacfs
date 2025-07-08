@@ -10,9 +10,10 @@ class Log_level(Enum):
     INFO = 6
     WARNING = 7
 
-def setlogger(level=Log_level.INFO):
+
+def initlogger(level=Log_level.INFO):
     
-    assert level == (Log_level.DEBUG or Log_level.INFO or Log_level.WARNING)
+    if not level == (Log_level.DEBUG or Log_level.INFO or Log_level.WARNING): raise error.InputValueError
 
     from os import makedirs
     makedirs(constant.LOG_PREFIX, exist_ok=True)
@@ -24,7 +25,7 @@ def setlogger(level=Log_level.INFO):
     file_handler.setLevel(logging.DEBUG)
 
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.WARNING)
+    console_handler.setLevel(logging.ERROR)
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
@@ -36,7 +37,12 @@ def setlogger(level=Log_level.INFO):
     return logger
 
 
-def logged_run(logger, command):
+def setlogger(name='UnknownModule'):
+    logger = logging.getLogger('main' + name)
+    return logger
+
+
+def logged_run(command, logger):
     process = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
@@ -54,7 +60,7 @@ def logged_run(logger, command):
     
     stdout_thread = threading.Thread(
         target=log_stream, 
-        args=(process.stdout, logging.INFO)
+        args=(process.stdout, logging.DEBUG)
     )
     stderr_thread = threading.Thread(
         target=log_stream, 
@@ -97,16 +103,10 @@ def logged_input(prompt, logger):
         
         except error.InputValueError as e:
             logger.warning(e)
-            print('Bad input, please retry')
-        
-        except KeyboardInterrupt as e:
-            logger.warning(e)
-            logger.warning('program exiting')
-            print('User keyboard interupt, program exiting...')
-            exit(0)
+            logged_print('Bad input, please retry', logger)
+
 
 def logged_print(prompt, logger):
     logger.info(prompt)
     print(prompt)
-
     return 0

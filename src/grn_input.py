@@ -1,54 +1,7 @@
-from src import constant, error, logger_all
-from pandas import read_csv
+from src import constant, error, logger_all, settings
 from os import makedirs, listdir
-import math
-import logging
 
-
-grn_log = logging.getLogger('main.grn_input')
-
-def depth_minmax():
-    # get min and max depth from file "receiving_fault.dat", return array (depth_min, depth_max)
-
-    columns = ['n', 'O_lat', 'O_lon', 'O_depth', 'length', 'width', 'strike', 'dip']
-    rf_data = read_csv(constant.CONFIG_PREFIX + 'receiving_fault.dat', sep=r'\s+', names=columns, comment='#')
-
-    O_depth = rf_data['O_depth']
-    width = rf_data['width']
-    dip = rf_data['dip']
-
-
-    depth_stretch = O_depth + width * math.cos(math.radians(dip))
-    depth_min = math.floor(min([min(O_depth), min(depth_stretch)]))
-    depth_max = math.ceil(max([max(O_depth), max(depth_stretch)]))
-    depth_range = [depth_min, depth_max]
-
-    assert depth_min >= 0, 'depth_min'
-    assert depth_max > depth_min, 'depth_range'
-
-    grn_log.debug(f'print depth_minmax output: {depth_range}')
-
-    return depth_range
-
-
-def calculation_setting():
-    # read calculation settings from file "calculation_setting.dat", return a float depth_step and a list storing other info
-
-    calculation_settings = []
-
-    with open(constant.CONFIG_PREFIX + 'calculation_setting.dat', 'r') as calculation_setting:
-        for line in calculation_setting:
-            if not line.strip() or line.startswith('#'):
-                continue
-            values = line.strip().split()
-            calculation_settings.append(values)
-    depth_step = float(calculation_settings[0][0])
-
-    assert depth_step > 0, 'depth_step'
-
-    grn_log.debug(f'print calculation_setting output: depth_step {depth_step}, calculation_settings {calculation_settings}')
-
-    return depth_step, calculation_settings
+grn_log = logger_all.setlogger('grn_input')
 
 
 def build_grn_input(depth, calculation_settings):
@@ -67,6 +20,7 @@ def build_grn_input(depth, calculation_settings):
     # compose grn input file
     with open(constant.TEMP_PREFIX + 'grn_input/' + str(depth) + '.grn', 'a') as grn_input, \
         open(constant.CONFIG_PREFIX + 'model.dat', 'r') as model:
+        
         try:
             grn_input.write(f'{depth} {calculation_settings[0][1]} \n')
             grn_input.write(f'{calculation_settings[1][0]} {calculation_settings[1][1]} {calculation_settings[1][2]} {calculation_settings[1][3]}\n')

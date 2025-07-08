@@ -2,9 +2,8 @@ from src import constant, error, logger_all
 from pyproj import Geod
 from os import makedirs, listdir
 import math
-import logging
 
-cmp_log = logging.getLogger('main.cmp_input')
+cmp_log = logger_all.setlogger('cmp_input')
 
 def observation_array_on_fault(receiving_fault_array, target_depth, observation_distance):
     # Generate points along the fault plane at a specified depth with a given horizontal spacing.
@@ -47,7 +46,7 @@ def observation_array_on_fault(receiving_fault_array, target_depth, observation_
     # Generate points along the fault's strike direction
     num_points = int(length / observation_distance) + 1
 
-    assert num_points >= 3
+    assert num_points > 2
 
     cmp_log.debug(f'num_points: {num_points}')
 
@@ -65,40 +64,6 @@ def observation_array_on_fault(receiving_fault_array, target_depth, observation_
     cmp_log.debug(f'observation_points construct result: {observation_points}')
 
     return observation_points
-
-
-def config():
-    # read config.dat file and return a list with info
-    configs = []
-
-    with open(constant.CONFIG_PREFIX + 'config.dat', 'r') as calculation_setting:
-        for line in calculation_setting:
-            if not line.strip() or line.startswith('#'):
-                continue
-            values = line.strip().split()
-            configs.append(values)
-    
-    cmp_log.debug(f'config.dat read result: {configs}')
-
-    try:
-        assert constant.TOF.contains(int(configs[0][0])), 'insar(1/0)'
-        if len(configs[0]) > 1:
-            assert constant.COS.contains(float(configs[0][1])), 'insar cosine value'
-            assert constant.COS.contains(float(configs[0][2])), 'insar cosine value'
-            assert constant.COS.contains(float(configs[0][3])), 'insar cosine value'
-        assert constant.TOF.contains(int(configs[1][0])), 'icmb'
-        if len(configs[1]) > 1:
-            assert float(configs[1][1]) > 0, 'friction factor'
-            assert constant.ANGLE1.contains(float(configs[1][3])), 'strike'
-            assert constant.ANGLE2.contains(float(configs[1][4])), 'dip'
-            assert constant.ANGLE3.contains(float(configs[1][5])), 'slip'
-        
-        cmp_log.debug(f'configs: {configs}')
-
-        return configs
-    
-    except AssertionError as e:
-        raise error.ConfigFileError('config.dat', e)
 
 
 def build_cmp_input(depth, observation_distance, configs):
@@ -132,6 +97,8 @@ def build_cmp_input(depth, observation_distance, configs):
 
             except AssertionError as e:
                 cmp_log.warning(f'observation array walking out of receiving fault, reason: {e}, skip this point')
+    
+    assert len(observation_array) > 0, 'observation_array empty'
     
     cmp_log.debug(f'observation_array construct result: {observation_array}')
 
