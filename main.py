@@ -38,7 +38,7 @@ try:
     depth_range = settings.depth_minmax()
     depth_step, calculation_settings = settings.calculation_setting()
     configs = settings.config()
-    observation_distance = depth_step / 5.0
+    observation_distance = depth_step * 2.0
 
     depth_array = []
     depth = depth_range[0]
@@ -59,7 +59,7 @@ except Exception as e:
 
 try:
     if ifgrn != 'n':
-        logger_all.logged_print('grn_input.py running...', log)
+        logger_all.logged_print('green function construct running...', log)
 
         if ifgrn == 'y':
             log.info('Overriding existing green function set...')
@@ -90,7 +90,7 @@ except Exception as e:
 
 try:
     if ifcmp != 'n':
-        logger_all.logged_print('cmp_input.py running...', log)
+        logger_all.logged_print('stress calculation running...', log)
 
         if ifcmp == 'y':
             log.info('Overriding existing deltacfs...')
@@ -126,6 +126,7 @@ except Exception as e:
 
 try:
     if ifap != 'n':
+        logger_all.logged_print('afterprocess running...', log)
         filelist = os.listdir(constant.TEMP_PREFIX + 'cmp/' + str(depth_array[0]))
         log.debug(f'readed file list: {filelist}')
 
@@ -143,7 +144,8 @@ try:
                     log.warning(e)
                     continue
         
-        log.info(f'{filename} write finished')
+            log.info(f'{filename} write finished')
+        logger_all(f'afterprocess for filelist {filelist} finished.')
 
 except Exception as e:
     log.error(e)

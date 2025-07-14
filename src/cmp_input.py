@@ -5,7 +5,7 @@ import math
 
 cmp_log = logger_all.setlogger('cmp_input')
 
-def observation_array_on_fault(receiving_fault_array, target_depth, observation_distance):
+def observation_array_on_fault(receiving_fault_array, target_depth, observation_max_interval):
     # Generate points along the fault plane at a specified depth with a given horizontal spacing.
     
     observation_points = []
@@ -44,14 +44,14 @@ def observation_array_on_fault(receiving_fault_array, target_depth, observation_
     cmp_log.debug(f'proj_lon, proj_lat: {proj_lon}, {proj_lat}')
 
     # Generate points along the fault's strike direction
-    num_points = int(length / observation_distance) + 1
+    num_points = int(length / observation_max_interval) + 1
 
     assert num_points > 2
 
     cmp_log.debug(f'num_points: {num_points}')
 
     for i in range(num_points):
-        distance_along_strike = i * observation_distance
+        distance_along_strike = i * observation_max_interval
         point_lon, point_lat, _ = geod.fwd(proj_lon, proj_lat, strike, distance_along_strike * 1000)
         if math.isnan(point_lon) or math.isnan(point_lat):
             raise error.FunctionRunningError('observation_array_on_fault')
@@ -66,10 +66,10 @@ def observation_array_on_fault(receiving_fault_array, target_depth, observation_
     return observation_points
 
 
-def build_cmp_input(depth, observation_distance, configs):
+def build_cmp_input(depth, observation_max_interval, configs):
     # build up pscmp input file
 
-    cmp_log.debug(f'input parameters: depth {depth}, observation_distance: {observation_distance}, configs: {configs}')
+    cmp_log.debug(f'input parameters: depth {depth}, observation_max_interval: {observation_max_interval}, configs: {configs}')
     
     dir = constant.TEMP_PREFIX + 'cmp/' + str(depth)
 
@@ -92,7 +92,7 @@ def build_cmp_input(depth, observation_distance, configs):
             split_line = stripped_line.split()
             
             try:
-                observation_points = observation_array_on_fault(split_line, depth, observation_distance)
+                observation_points = observation_array_on_fault(split_line, depth, observation_max_interval)
                 observation_array.extend(observation_points)
 
             except AssertionError as e:
