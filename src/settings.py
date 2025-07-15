@@ -1,15 +1,103 @@
-from src import constant, logger_all
+from src import constant, exception_process, logger_all
+from pyproj import Proj, Transformer
 from os.path import exists
 import math
 
 settings_log = logger_all.setlogger('settings')
 
-def depth_minmax():
-    # get min and max depth from file "receiving_fault.dat", return array (depth_min, depth_max)
+def prepare_observe_points(receive_fault, observation_max_interval) -> tuple:
+    '''
+    generate observe points with fault parameter receving
+
+    using transform between espg:32650 and espg:4326 to generate observe points respect rectangular mesh, \
+    will return depth list, vertice list and observe points list in a tuple
+
+    Args:
+        receive_fault(array): parameters of receive fault, should be list in order of \
+            longtitude, latitude, depth, length, width, strike and dip
+        observation_max_interval(float): the ceiling of intervals between two closest observe points, unit in kelometer
+    
+    Returns:
+        tuple: including three lists:
+            - depth_list(list[float]): list of observe points depth which covers all observe points
+            - vertice(list[tuple]): list of points which belongs to rectangulars that descrete fault plane
+            - observe_points(list[tuple]): list of observe points, which is in the centre of those rectangulars
+    
+    Raises:
+        exception_process.FunctionRuningError: if function raise Exception
+    '''
+    
+    # changing this value to control length/width ratio of mesh unit. when equals 1.0, the unit is square
+    observation_rec_ratio = 1.0
+
+    # preparing empty list
+    depth_list = []
+    vertice = []
+    observe_points = []
+
+    # reading data from receive_fault list and turn strings into float for calculation
+    O_lon = float(receive_fault[1])
+    O_lat = float(receive_fault[2])
+    O_depth = float(receive_fault[3])
+    length = float(receive_fault[4])
+    width = float(receive_fault[5])
+    strike = float(receive_fault[6])
+    dip_angle = float(receive_fault[7])
+
+    settings_log.debug(f'receive_fault read result: O_lon: {O_lon}, O_lat: {O_lat}, O_depth: {O_depth}, \
+                       length: {length}, width: {width}, strike: {strike}, dip_angle: {dip_angle}')
+
+    # construct transform
+    proj_ll = Proj("epsg:4326")
+    proj_xy = Proj("epsg:32648") # EPSG：32648 covers 102°E to 108°E in northern hemisphere, unit in meter, be caution!
+    ll2xy = Transformer.from_proj(proj_ll, proj_xy, always_xy=True)
+    xy2ll = Transformer.from_proj(proj_xy, proj_ll, always_xy=True)
+
+    # transform start point to local coordinate
+    O_lon_local, O_lat_local = ll2xy.transform(O_lon, O_lat)
+    
+    # find number of points in horizontal direction and vertical direction
+    hori_number = math.ceil(length/(observation_max_interval * observation_rec_ratio))
+    verti_number = math.ceil(width/observation_max_interval)
+
+    settings_log.debug(f'horizontal_interval: {length/hori_number}, vertical_interval: {width/verti_number}')
+
+    # assure actual interval meet max interval
+    assert width/verti_number <= observation_max_interval, 'vertical interval oversize'
+    assert length/hori_number <= observation_max_interval * observation_rec_ratio, 'horizontal interval oversize'
+    
+    from numpy import linspace
+    xs_local = linspace(O_lon_local, O_lon_local + length*1000, hori_number + 1)
+    ys_local = linspace(O_lat_local, O_lat_local + width*1000, verti_number + 1)
+
+    for j in range(verti_number):
+        for i in range(hori_number):
+            vertex_lon, vertex_lat = xy2ll.transform(xs_local[i], ys_local[j])
+            vertex_depth = O_depth + width / verti_number * j / math.tan(math.radians(dip_angle))
+            vertice.append((vertex_lon, vertex_lat, vertex_depth))
+            settings_log.debug(f'vertice: ({vertex_lon}, {vertex_lat}, {vertex_depth})')
+
+    for j in range(verti_number - 1):
+        for i in range(hori_number - 1):
+            op_lon, op_lat = xy2ll.transform(0.5*(xs_local[i] + xs_local[i+1]), 0.5*(ys_local[j] + ys_local[i+1]))
+            op_depth = O_depth + width / verti_number * (j+0.5) / math.tan(math.radians(dip_angle))
+            observe_points.append((op_lon, op_lat, op_depth))
+            depth_list.append(op_depth)
+            settings_log.debug(f'observation_point: ({op_lon}, {op_lat}, {op_depth})')
+
+    settings_log.debug(f'depth list construct result: {depth_list}')
+    settings_log.debug(f'vertice construct result: {vertice}')
+    settings_log.debug(f'observe points construct result: {observe_points}')
+
+    return depth_list, vertice, observe_points
+
+
+def depth_minmax(): 
+    # get min and max depth from file "receive_fault.dat", return array (depth_min, depth_max)
     depth = []
     depth_stretch = []
-    with open(constant.CONFIG_PREFIX + 'receiving_fault.dat', 'r') as receiving_fault:
-        for line in receiving_fault:
+    with open(constant.CONFIG_PREFIX + 'receive_fault.dat', 'r') as receive_fault:
+        for line in receive_fault:
             stripped_line = line.strip()
             if not stripped_line or stripped_line.startswith('#'):
                 continue
@@ -64,7 +152,6 @@ def config():
             configs.append(values)
     
     settings_log.debug(f'config.dat read result: {configs}')
-
 
     assert constant.TOF.contains(int(configs[0][0])), 'insar(1/0)'
     if len(configs[0]) > 1:

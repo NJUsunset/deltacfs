@@ -7,26 +7,26 @@ OUTPUT_PREFIX = './output/'
 LOG_PREFIX = './logs/'
 
 class Range:
-    def __init__(self, sub, up):
+    def __init__(self, sub, up) -> None:
         self.sub = sub
         self.up = up
-    def contains(self, number):
+    def contains(self, number) -> bool:
         return self.sub <= number <= self.up
-    def abs_contains(self, number):
+    def abs_contains(self, number) -> bool:
         return self.sub < number < self.up
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Range: from {self.sub} to {self.up}'
 
 class BoolenNumber:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
-    def contains(number):
-        return number == 0 or number == 1
-    def __str__():
+    def contains(self, number) -> bool:
+        return number in (0, 1)
+    def __str__(self) -> str:
         return 'int 0 or int 1'
 
 
-TOF = BoolenNumber
+TOF = BoolenNumber()
 COS = Range(-1, 1)
 ANGLE1 = Range(0, 360)
 ANGLE2 = Range(-90, 90)

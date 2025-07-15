@@ -1,4 +1,4 @@
-from src import constant, error, logger_all, settings
+from src import constant, exception_process, logger_all, settings
 from os import makedirs, listdir
 
 grn_log = logger_all.setlogger('grn_input')
@@ -42,7 +42,7 @@ def build_grn_input(depth, calculation_settings):
                 grn_input.write(cleaned_line + '\n')
         
         except Exception as e:
-            raise error.FunctionRunningError('build_grn_input')
+            raise exception_process.FunctionRunningError('build_grn_input')
     
     logger_all.logged_print(f'build psgrn input file for depth {depth}...', grn_log)
 

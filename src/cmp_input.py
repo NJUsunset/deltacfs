@@ -1,84 +1,22 @@
-from src import constant, error, logger_all
-from pyproj import Geod
+from src import constant, exception_process, logger_all, settings
 from os import makedirs, listdir
 import math
 
 cmp_log = logger_all.setlogger('cmp_input')
 
-def observation_array_on_fault(receiving_fault_array, target_depth, observation_max_interval):
-    # Generate points along the fault plane at a specified depth with a given horizontal spacing.
-    
-    observation_points = []
-
-    O_lon = float(receiving_fault_array[1])
-    O_lat = float(receiving_fault_array[2])
-    O_depth = float(receiving_fault_array[3])
-    length = float(receiving_fault_array[4])
-    width = float(receiving_fault_array[5])
-    strike = float(receiving_fault_array[6])
-    dip_angle = float(receiving_fault_array[7])
-
-    cmp_log.debug(f'receiving_fault_array read result: O_lon: {O_lon}, O_lat: {O_lat}, O_depth: {O_depth}, length: {length}, width: {width}, strike: {strike}, dip_angle: {dip_angle}')
-
-    geod = Geod(ellps="WGS84")
-
-    depth_diff = target_depth - O_depth
-    horizontal_offset = depth_diff / math.tan(math.radians(dip_angle))
-    width_offset = depth_diff / math.sin(math.radians(dip_angle))
-
-    if math.isnan(horizontal_offset): raise error.FunctionRunningError('observation_array_on_fault')
-    if math.isnan(width_offset): raise error.FunctionRunningError('observation_array_on_fault')
-
-    cmp_log.debug(f'depth_diff: {depth_diff}, horizontal_offset: {horizontal_offset}, width_offset: {width_offset}')
-    
-    assert depth_diff >= 0, 'depth_diff overwhelm'
-    assert width_offset <= width, 'width_offset overwhelm'
-
-    # Determine the starting point's projection at the target depth
-    proj_lon, proj_lat, _ = geod.fwd(O_lon, O_lat, (strike + 90) % 360, horizontal_offset * 1000)
-    proj_lon, proj_lat = (round(proj_lon, 4), round(proj_lat, 4))
-
-    if math.isnan(proj_lon) or math.isnan(proj_lat):
-        raise error.FunctionRunningError('observation_array_on_fault')
-
-    cmp_log.debug(f'proj_lon, proj_lat: {proj_lon}, {proj_lat}')
-
-    # Generate points along the fault's strike direction
-    num_points = int(length / observation_max_interval) + 1
-
-    assert num_points > 2
-
-    cmp_log.debug(f'num_points: {num_points}')
-
-    for i in range(num_points):
-        distance_along_strike = i * observation_max_interval
-        point_lon, point_lat, _ = geod.fwd(proj_lon, proj_lat, strike, distance_along_strike * 1000)
-        if math.isnan(point_lon) or math.isnan(point_lat):
-            raise error.FunctionRunningError('observation_array_on_fault')
-        point_lon, point_lat = (round(point_lon, 4), round(point_lat, 4))
-
-        cmp_log.debug(f'distance_along_strike: {distance_along_strike}, point_lon, point_lat: {point_lon} {point_lat}')
-
-        observation_points.append((point_lon, point_lat))
-
-    cmp_log.debug(f'observation_points construct result: {observation_points}')
-
-    return observation_points
-
-
-def build_cmp_input(depth, observation_max_interval, configs):
+def build_cmp_input(depth_number, observation_points_array, configs):
     # build up pscmp input file
 
-    cmp_log.debug(f'input parameters: depth {depth}, observation_max_interval: {observation_max_interval}, configs: {configs}')
+    cmp_log.debug(f'input parameters: depth {depth_number}, configs: {configs}')
     
-    dir = constant.TEMP_PREFIX + 'cmp/' + str(depth)
+    dir = constant.TEMP_PREFIX + 'cmp/' + str(depth_number)
 
     makedirs(dir, exist_ok=True)
 
     # override option will override any possible exist former file in temp/cmp/
     # or the function will skip writing if there is any file in target folder
     if (len(listdir(dir)) != 0):
-        cmp_log.warning(f'cmp file for depth {depth} already exists, skipping...')
+        cmp_log.warning(f'cmp file for depth number {depth_number} already exists, skipping...')
         return 0
     
     # calculate observation array
@@ -92,7 +30,7 @@ def build_cmp_input(depth, observation_max_interval, configs):
             split_line = stripped_line.split()
             
             try:
-                observation_points = observation_array_on_fault(split_line, depth, observation_max_interval)
+                vertice, observation_points = settings.observation_array_on_fault(split_line, observation_max_interval)
                 observation_array.extend(observation_points)
 
             except AssertionError as e:
@@ -102,7 +40,7 @@ def build_cmp_input(depth, observation_max_interval, configs):
     
     cmp_log.debug(f'observation_array construct result: {observation_array}')
 
-    with open(constant.TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp', 'a') as cmp_input, open(constant.CONFIG_PREFIX + 'source_fault.dat', 'r') as source_fault:
+    with open(constant.TEMP_PREFIX + 'cmp_input/' + str(depth_number) + '.cmp', 'a') as cmp_input, open(constant.CONFIG_PREFIX + 'source_fault.dat', 'r') as source_fault:
         try:
             cmp_input.write('0\n')
             cmp_input.write(f'{len(observation_array)}\n')
@@ -121,7 +59,7 @@ def build_cmp_input(depth, observation_max_interval, configs):
                 cmp_input.write(f'{configs[1][3]} {configs[1][4]} {configs[1][5]} ')
                 cmp_input.write(f'{configs[1][6]} {configs[1][7]} {configs[1][8]}\n')
             
-            cmp_input.write(f"'{constant.TEMP_PREFIX}cmp/{depth}/'\n")
+            cmp_input.write(f"'{constant.TEMP_PREFIX}cmp/{depth_number}/'\n")
             cmp_input.write('0 0 0\n')
             cmp_input.write("'ux.dat' 'uy.dat' 'uz.dat'\n")
             cmp_input.write('0 0 0 0 0 0\n')
@@ -135,7 +73,7 @@ def build_cmp_input(depth, observation_max_interval, configs):
                 cmp_input.write(f'{configs[3 + snapshot_count][0]} {configs[3 + snapshot_count][1]}\n')
                 snapshot_count += 1
             
-            cmp_input.write(f"'{constant.TEMP_PREFIX}grn/{depth}/'\n")
+            cmp_input.write(f"'{constant.TEMP_PREFIX}grn/{depth_number}/'\n")
             cmp_input.write("'uz' 'ur' 'ut'\n")
             cmp_input.write("'szz' 'srr' 'stt' 'szr' 'srt' 'stz'\n")
             cmp_input.write("'tr' 'tt' 'rot' 'gd' 'gr'\n")
@@ -148,6 +86,6 @@ def build_cmp_input(depth, observation_max_interval, configs):
                 cmp_input.write(cleaned_line + '\n')
         
         except Exception as e:
-            raise error.FunctionRunningError('build_cmp_input(write)')
+            raise exception_process.FunctionRunningError('build_cmp_input(write)')
 
-    logger_all.logged_print(f'build pscmp input file for depth {depth}...', cmp_log)
+    logger_all.logged_print(f'build pscmp input file for depth number {depth_number}...', cmp_log)
