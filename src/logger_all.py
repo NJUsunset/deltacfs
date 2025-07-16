@@ -13,7 +13,7 @@ class Log_level(Enum):
 
 def initlogger(level=Log_level.INFO):
     
-    if not level == (Log_level.DEBUG or Log_level.INFO or Log_level.WARNING): raise error.InputValueError
+    if not level == (Log_level.DEBUG or Log_level.INFO or Log_level.WARNING): raise error.InputValueError('initlogger')
 
     from os import makedirs
     makedirs(constant.LOG_PREFIX, exist_ok=True)

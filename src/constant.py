@@ -20,13 +20,13 @@ class Range:
 class BoolenNumber:
     def __init__(self):
         pass
-    def contains(number):
+    def contains(self, number):
         return number == 0 or number == 1
-    def __str__():
+    def __str__(self):
         return 'int 0 or int 1'
 
 
-TOF = BoolenNumber
+TOF = BoolenNumber()
 COS = Range(-1, 1)
 ANGLE1 = Range(0, 360)
 ANGLE2 = Range(-90, 90)

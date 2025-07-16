@@ -72,14 +72,14 @@ try:
             logger_all.logged_run(['bash', './src/psgrn.sh', constant.TEMP_PREFIX + 'grn_input/' + str(depth) + '.grn'], fortran_log)
             log.info(f'psgrn.sh finished for depth {depth}.')
 
-except error.FunctionRunningError as e:
-    log.error(e)
-    logger_all.logged_print(e + ', please check\npropgram exiting...', log)
-    exit()
-
 except error.CommandRunningError as e:
     log.error(e)
-    logger_all.logged_print(e + ', please check\nprogram exiting...', log)
+    logger_all.logged_print(f'{e}, please check\nprogram exiting...', log)
+    exit()
+
+except error.FunctionRunningError as e:
+    log.error(e)
+    logger_all.logged_print(f'{e}, please check\npropgram exiting...', log)
     exit()
 
 except Exception as e:
@@ -108,14 +108,14 @@ try:
                 log.warning(e)
                 pass
 
-except error.FunctionRunningError as e:
-    log.error(e)
-    logger_all.logged_print(e + ', please check\npropgram exiting...', log)
-    exit()
-
 except error.CommandRunningError as e:
     log.error(e)
-    logger_all.logged_print(e + ', please check\nprogram exiting...', log)
+    logger_all.logged_print(f'{e}, please check\nprogram exiting...', log)
+    exit()
+
+except error.FunctionRunningError as e:
+    log.error(e)
+    logger_all.logged_print(f'{e}, please check\npropgram exiting...', log)
     exit()
 
 except Exception as e:
@@ -145,7 +145,7 @@ try:
                     continue
         
             log.info(f'{filename} write finished')
-        logger_all(f'afterprocess for filelist {filelist} finished.')
+        logger_all.logged_print(f'afterprocess for filelist {filelist} finished.', log)
 
 except Exception as e:
     log.error(e)
