@@ -1,10 +1,10 @@
-from src import constant, exception_process, grn_input, cmp_input, logger_all, settings
+from src import constant, errors, grn_input, cmp_input, logger_all, settings
 from shutil import rmtree
 import logging
 from os import makedirs, listdir
 
 TEST = True
-def main():
+def main() -> None:
     # initialise log
     log = logger_all.initlogger(logging.DEBUG if TEST else logging.INFO)
     fortran_log = logger_all.setlogger('fortran_run')
@@ -86,12 +86,12 @@ def main():
                 log.info(f'psgrn.sh finished for depth {depth}.')
 
 
-    except exception_process.CommandRunningError as e:
+    except errors.CommandRunningError as e:
         log.error(e)
         logger_all.logged_print(f'{e}, please check\nprogram exiting...', log)
         exit()
 
-    except exception_process.FunctionRunningError as e:
+    except errors.FunctionRunningError as e:
         log.error(e)
         logger_all.logged_print(f'{e}, please check\npropgram exiting...', log)
         exit()
@@ -121,12 +121,12 @@ def main():
                     log.warning(e)
                     pass
 
-    except exception_process.CommandRunningError as e:
+    except errors.CommandRunningError as e:
         log.error(e)
         logger_all.logged_print(f'{e}, please check\nprogram exiting...', log)
         exit()
 
-    except exception_process.FunctionRunningError as e:
+    except errors.FunctionRunningError as e:
         log.error(e)
         logger_all.logged_print(f'{e}, please check\npropgram exiting...', log)
         exit()

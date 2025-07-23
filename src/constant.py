@@ -1,10 +1,10 @@
-from src import logger_all
+CONFIG_PREFIX = './config/' # config file route
+TEMP_PREFIX = './temp/' # temp file route
+SRC_PREFIX = './src/'   # src file route
+OUTPUT_PREFIX = './output/' # output file route
+LOG_PREFIX = './logs/' # logfile route
 
-CONFIG_PREFIX = './config/'
-TEMP_PREFIX = './temp/'
-SRC_PREFIX = './src/'
-OUTPUT_PREFIX = './output/'
-LOG_PREFIX = './logs/'
+
 
 class Range:
     def __init__(self, sub, up) -> None:
@@ -17,6 +17,8 @@ class Range:
     def __str__(self) -> str:
         return f'Range: from {self.sub} to {self.up}'
 
+
+
 class BoolenNumber:
     def __init__(self) -> None:
         pass
@@ -26,12 +28,13 @@ class BoolenNumber:
         return 'int 0 or int 1'
 
 
+
 TOF = BoolenNumber()
 COS = Range(-1, 1)
 ANGLE1 = Range(0, 360)
 ANGLE2 = Range(-90, 90)
 ANGLE3 = Range(0, 180)
 
+from src import logger_all
 constant_log = logger_all.setlogger('constant')
-
 constant_log.debug('constant module loaded')

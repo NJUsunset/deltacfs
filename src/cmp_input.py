@@ -1,4 +1,4 @@
-from src import constant, exception_process, logger_all, settings
+from src import constant, errors, logger_all, settings
 from os import makedirs, listdir
 import math
 
@@ -86,6 +86,6 @@ def build_cmp_input(depth_number, observation_points_array, configs):
                 cmp_input.write(cleaned_line + '\n')
         
         except Exception as e:
-            raise exception_process.FunctionRunningError('build_cmp_input(write)')
+            raise errors.FunctionRunningError('build_cmp_input(write)')
 
     logger_all.logged_print(f'build pscmp input file for depth number {depth_number}...', cmp_log)

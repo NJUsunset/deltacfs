@@ -1,11 +1,14 @@
-from src import constant, exception_process
+from src import constant, errors
+from typing import Callable, Any, IO
 import logging
 
-def timer(func):
+
+
+def timer(func: Callable[..., Any]) -> Callable[..., Any]:
     """
     decorator to measure function working time and record them
     """
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> Callable[..., Any]:
         import time, inspect
         sig = inspect.signature(func)
         bound_args = sig.bind(*args, **kwargs)
@@ -14,9 +17,10 @@ def timer(func):
         start = time.time()
         result = func(*args, **kwargs)
         end = time.time()
-        logged_print(f"{func.__name__} active time: {end-start:.6f}s", params['logger'])
+        logged_print(f'{func.__name__} active time: {end-start:.6f}s', params['logger'])
         return result
     return wrapper
+
 
 
 def initlogger(file_level=logging.INFO, console_level=logging.WARNING) -> logging.Logger:
@@ -33,26 +37,44 @@ def initlogger(file_level=logging.INFO, console_level=logging.WARNING) -> loggin
         logger(logging.Logger): main function logger
     
     Raises:
-        exception_process.FunctionRuningError: if function raise Exception type other than exception_process.InputValueError
+        errors.InputError:
+        errors.FuncError:
+        errors.UnexpectedError:
 
-    Notes: log file will be stored in ./LOG_PREFIX/ folder
+    Notes: log file will be stored in constant.LOG_PREFIX folder
     '''
     try:
-        # input value check
-        if not file_level == (logging.DEBUG or logging.INFO or logging.WARNING): raise exception_process.InputValueError('initlogger')
-        if not console_level == (logging.DEBUG or logging.INFO or logging.WARNING): raise exception_process.InputValueError('initlogger')
+        try:
+            # input value check
+            valid_input = [logging.DEBUG, logging.INFO, logging.WARNING]
+            assert file_level in valid_input 
+            assert console_level in valid_input
+
+        except AssertionError as e:
+            raise errors.InputError from e
+
 
         # create log folder to store file
-        from os import makedirs
-        makedirs(constant.LOG_PREFIX, exist_ok=True)
+        try:
+            from os import makedirs
+            makedirs(constant.LOG_PREFIX, exist_ok=True)
+
+        except Exception as e:
+            raise errors.FuncError('make dir') from e
+
 
         # create main logger and set to record all log info
         logger = logging.getLogger('main')
         logger.setLevel(logging.DEBUG)
+        
+        try:
+            from datetime import datetime
+            file_handler = logging.FileHandler(constant.LOG_PREFIX + f'Calculation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log')
+            file_handler.setLevel(file_level)
+        
+        except Exception as e:
+            raise errors.FuncError('create log file') from e
 
-        from datetime import datetime
-        file_handler = logging.FileHandler(constant.LOG_PREFIX + f'Calculation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log')
-        file_handler.setLevel(file_level)
 
         console_handler = logging.StreamHandler()
         console_handler.setLevel(console_level)
@@ -66,12 +88,12 @@ def initlogger(file_level=logging.INFO, console_level=logging.WARNING) -> loggin
 
         return logger
     
-    except exception_process.InputValueError as e:
-        print('Bad input for initialising log system, please check code, program exiting')
-        exit()
-    
+    except (errors.InputError, errors.FuncError) as e:
+        raise e
+
     except Exception as e:
-        raise exception_process.FunctionRunningError('initlogger', e)
+        raise errors.UnexpectedError('logger create') from e
+
 
 
 def setlogger(name='UnknownModule') -> logging.Logger:
@@ -83,13 +105,22 @@ def setlogger(name='UnknownModule') -> logging.Logger:
     
     Returns:
         logger(logging.Logger):
-    '''
-    logger = logging.getLogger('main.' + name)
     
-    return logger
+    Raises:
+        errors.UnexpectedError:
+    '''
+    try:
+        logger = logging.getLogger('main.' + name)
+        
+        return logger
+    
+    except Exception as e:
+        raise errors.UnexpectedError from e
+
+
 
 @timer
-def logged_run(command, logger) -> int:
+def logged_run(command: list[str], logger: logging.Logger) -> int:
     '''
     run os code and record output
 
@@ -100,70 +131,138 @@ def logged_run(command, logger) -> int:
     
     Returns:
         returncode(int): mark whether command run sucessfully
+    
+    Raises:
+        errors.RunFailError:
+        errors.FuncError:
+        errors.UnexpectedError
     '''
-    import subprocess, threading
-    process = subprocess.Popen(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1,
-        universal_newlines=True
-    )
-    
-    def log_stream(stream, level):
-        for line in iter(stream.readline, ''):
-            cleaned_line = line.rstrip('\n')
-            if cleaned_line:
-                logger.log(level, cleaned_line)
-    
-    stdout_thread = threading.Thread(
-        target=log_stream, 
-        args=(process.stdout, logging.DEBUG)
-    )
-    stderr_thread = threading.Thread(
-        target=log_stream, 
-        args=(process.stderr, logging.ERROR)
-    )
-    
-    stdout_thread.start()
-    stderr_thread.start()
-    
-    process.wait()
-    
-    stdout_thread.join()
-    stderr_thread.join()
-    
-    if process.returncode != 0:
-        logger.error(f"program exit with error when running command {command} with exit code {process.returncode}")
-        raise exception_process.CommandRunningError(logged_run, command)
-    else:
-        logger.info(f"program exit with success when running command {command}")
+    try:
+        import subprocess, threading
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            universal_newlines=True
+        )
         
-    return process.returncode
-
-
-def logged_input(prompt, logger, valid_input):
-    while True:
+        def log_stream(stream: IO[str], level=logging.DEBUG) -> None:
+            for line in iter(stream.readline, ''):
+                cleaned_line = line.rstrip('\n')
+                if cleaned_line:
+                    logger.log(level, cleaned_line)
+        
+        stdout_thread = threading.Thread(
+            target=log_stream, 
+            args=(process.stdout, logging.DEBUG)
+        )
+        stderr_thread = threading.Thread(
+            target=log_stream, 
+            args=(process.stderr, logging.ERROR)
+        )
+        
         try:
-            print(prompt, end='', flush=True)
+            stdout_thread.start()
+            stderr_thread.start()
             
-            user_input = input()
+            process.wait()
             
-            logger.info(f"INPUT PROMPT: {prompt.rstrip()}")
-            logger.info(f"USER RESPONSE: {user_input}")
+            stdout_thread.join()
+            stderr_thread.join()
 
-            if user_input in valid_input:
-                return user_input
-            else:
-                raise exception_process.InputValueError(logged_input)
+        except Exception as e:
+            raise errors.FuncError('thread running') from e
         
-        except exception_process.InputValueError as e:
-            logger.warning(e)
-            logged_print('Bad input, please retry', logger)
+
+        if process.returncode != 0:
+            logger.error(f'os running exit with error on command {command}')
+            raise errors.RunFailError
+        else:
+            logger.info(f'os running exit with success on command {command}')
+            
+        return process.returncode
+    
+    except (errors.RunFailError, errors.FuncError) as e:
+        raise e
+    
+    except Exception as e:
+        raise errors.UnexpectedError from e
 
 
-def logged_print(prompt, logger):
-    logger.info(prompt)
-    print(prompt)
-    return 0
+
+def logged_input(prompt: str, logger: logging.Logger, valid_input: list[str]) -> str:
+    """
+    print prompt on console, receive and verify user input and log what's happened with logger
+
+    Args:
+        prompt(str):
+        logger(logging.Logger):
+        valid_input(list[str]): a list of strings that can pass verification
+    
+    Returns:
+        user_input(str): strings in valid_input which user give
+    
+    Raises:
+        errors.InputError
+        errors.FuncError
+        errors.UnexpectedError
+    """
+    try:
+        try:
+            assert valid_input
+        
+        except AssertionError as e:
+            raise errors.InputError from e
+        
+
+        while True:
+            try:
+                print(prompt, end='', flush=True)
+                
+                user_input = input()
+                
+                logger.info(f"INPUT PROMPT: {prompt.rstrip()}")
+                logger.info(f"USER RESPONSE: {user_input}")
+
+                if user_input in valid_input:
+                    return user_input
+                else:
+                    raise errors.InputError
+            
+            except errors.InputError as e:
+                logged_print('Bad input, please retry', logger)
+            
+            except Exception as e:
+                raise errors.FuncError('interact')
+    
+
+    except (errors.InputError, errors.FuncError) as e:
+        raise e
+
+    except Exception as e:
+        raise errors.UnexpectedError from e
+
+
+
+def logged_print(prompt: str, logger: logging.Logger) -> None:
+    """
+    print prompt on console and log it with logger
+
+    Args:
+        prompt(str):
+        logger(logging.Logger):
+
+    Returns:
+        (None)
+    
+    Raises:
+        error.UnexpectedError
+    """
+    try:
+        logger.info(prompt)
+        print(prompt)
+
+    except Exception as e:
+        raise errors.UnexpectedError from e
