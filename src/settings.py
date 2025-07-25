@@ -1,8 +1,139 @@
 from src import constant, errors, logger_all
+from typing import Callable
+import logging
+
 
 settings_log = logger_all.setlogger('settings')
 
-def prepare_observe_points(receive_fault: list[str], observation_max_interval: float) -> tuple[list[float], list[tuple[float, float, float]], list[tuple[float, float, float]]]:
+
+
+def interact_and_clean(logger: logging.Logger) -> None:
+    """
+    ask user to save data and make clean
+
+    Args:
+        logger(logging.Logger)
+    
+    Returns:
+        (None)
+    
+    Raises:
+        errors.InputError:
+        errors.FuncError:
+        errors.UnexpectedError:
+    """
+    try:
+        valid_input = ['Confirm', 'ALL', 'exit']
+        run = logger_all.logged_input('The program will erase all file in output adn temp folder\n \
+                                        all privious data will be loss, please save them before further action\n \
+                                        type Confirm below to make further run, \
+                                        ALL option will additionally clean log file: (Confirm/ALL/exit)\n', logger, valid_input)
+
+        from shutil import rmtree
+        try:
+            if run == 'exit':
+                logger_all.logged_print('accept input to exit program, program stopping...', logger)
+                exit()
+            elif run == 'Confirm':
+                logger_all.logged_print('accept confirmation, program cleaning...', logger)
+                logger.debug('cleaning existing green function set...')
+                rmtree(constant.TEMP_PREFIX + 'grn/', ignore_errors=True)
+                rmtree(constant.TEMP_PREFIX + 'grn_input/', ignore_errors=True)
+                logger.debug('cleaning existing deltacfs...')
+                rmtree(constant.TEMP_PREFIX + 'cmp/', ignore_errors=True)
+                rmtree(constant.TEMP_PREFIX + 'cmp_input/', ignore_errors=True)
+                logger.debug('cleaning existing output file...')
+                rmtree(constant.OUTPUT_PREFIX, ignore_errors=True)
+                logger.info('clean process finished')
+            elif run == 'ALL':
+                logger_all.logged_print('accept all clean confirmation, program cleaning...', logger)
+                logger.debug('cleaning existing green function set...')
+                rmtree(constant.TEMP_PREFIX + 'grn/', ignore_errors=True)
+                rmtree(constant.TEMP_PREFIX + 'grn_input/', ignore_errors=True)
+                logger.debug('cleaning existing deltacfs...')
+                rmtree(constant.TEMP_PREFIX + 'cmp/', ignore_errors=True)
+                rmtree(constant.TEMP_PREFIX + 'cmp_input/', ignore_errors=True)
+                logger.debug('cleaning existing output file...')
+                rmtree(constant.OUTPUT_PREFIX, ignore_errors=True)
+                logger.debug('cleaning existing log file...')
+                rmtree(constant.LOG_PREFIX, ignore_errors=True)
+                logger.info('clean process finished')
+        
+        except Exception as e:
+            raise errors.FuncError('rmtree') from e
+    
+    except (errors.InputError, errors.FuncError, errors.UnexpectedError) as e:
+        raise e
+    
+    except Exception as e:
+        raise errors.UnexpectedError
+
+
+
+def empty_assertion(r_settings: list[list[str]]) -> None: ...
+
+
+
+def calculation_setting_assertion(r_settings: list[list[str]]) -> None:
+    """
+    assertion func for calculation_setting data check, only function when quoted by read_settings
+
+    Args:
+        r_settings(list[list[str]]): input data to check
+    
+    Returns:
+        (None)
+    
+    Raises:
+        AsssertionError:
+    
+    Note:
+        need to be sure data structure is correct MANUALLY or program will raise errors.UnexpectedError
+    """
+    assert r_settings, 'input parameter'
+    assert float(r_settings[0][0]) > 0.1, 'interval maxinum'
+    assert constant.TOF.contains(int(r_settings[0][1])), 'continent/ocean switch'
+    assert float(r_settings[1][1]) <= float(r_settings[1][2]), 'horizontal distance'
+    assert float(r_settings[1][3]) >= 1.0, 'sample ratio'
+    assert int(r_settings[2][0]) >= 1
+    assert float(r_settings[2][1]) <= float(r_settings[2][2])
+    assert constant.AC.contains(float(r_settings[4][0]))
+    assert constant.ZO.contains(float(r_settings[5][0]))
+
+
+
+def config_assertion(r_settings: list[list[str]]) -> None:
+    """
+    assertion func for config.json data check, only function when quoted by read_settings
+
+    Args:
+        r_settings(list[list[str]]): input data to check
+    
+    Returns:
+        (None)
+    
+    Raises:
+        AsssertionError:
+    
+    Note:
+        need to be sure data structure is correct MANUALLY or program will raise errors.UnexpectedError
+    """
+    assert r_settings, 'input parameter'
+    assert constant.TOF.contains(int(r_settings[0][0])), 'insar(1/0)'
+    if len(r_settings[0]) > 1:
+        assert constant.COS.contains(float(r_settings[0][1])), 'insar cosine value'
+        assert constant.COS.contains(float(r_settings[0][2])), 'insar cosine value'
+        assert constant.COS.contains(float(r_settings[0][3])), 'insar cosine value'
+    assert constant.TOF.contains(int(r_settings[1][0])), 'icmb'
+    if len(r_settings[1]) > 1:
+        assert float(r_settings[1][1]) > 0, 'friction factor'
+        assert constant.ANGLE1.contains(float(r_settings[1][3])), 'strike'
+        assert constant.ANGLE2.contains(float(r_settings[1][4])), 'dip'
+        assert constant.ANGLE3.contains(float(r_settings[1][5])), 'slip'
+
+
+
+def prepare_observe_points(receive_fault: list[str], observe_max_interval: float) -> tuple[list[float], list[tuple[float, float, float]], list[tuple[float, float, float]]]:
     '''
     generate observe points with fault parameter receving
 
@@ -12,7 +143,7 @@ def prepare_observe_points(receive_fault: list[str], observation_max_interval: f
     Args:
         receive_fault(list[str]): parameters of receive fault, should be list in order of \
             longtitude, latitude, depth, length, width, strike and dip
-        observation_max_interval(float): the ceiling of intervals between two closest observe points, unit in kelometer and must > 0.1
+        observe_max_interval(float): the ceiling of intervals between two closest observe points, unit in kelometer and must > 0.1
     
     Returns:
         tuple:
@@ -47,10 +178,10 @@ def prepare_observe_points(receive_fault: list[str], observation_max_interval: f
             strike = float(receive_fault[6])
             dip_angle = float(receive_fault[7])
 
-            assert observation_max_interval >= 0.1
+            assert observe_max_interval >= 0.1
         
         except AssertionError as e:
-            raise errors.InputError('observation_max_interval')
+            raise errors.InputError('observe_max_interval')
         
         except Exception as e:
             raise errors.InputError('receive_fault')
@@ -78,8 +209,8 @@ def prepare_observe_points(receive_fault: list[str], observation_max_interval: f
             
             # find number of points in horizontal direction and vertical direction
             from math import ceil
-            hori_number = ceil(length/(observation_max_interval * observation_rec_ratio))
-            verti_number = ceil(width/observation_max_interval)
+            hori_number = ceil(length/(observe_max_interval * observation_rec_ratio))
+            verti_number = ceil(width/observe_max_interval)
         
         except Exception as e:
             raise errors.MathError from e
@@ -89,8 +220,8 @@ def prepare_observe_points(receive_fault: list[str], observation_max_interval: f
 
         try:
             # assure actual interval meet max interval
-            assert width/verti_number <= observation_max_interval, 'vertical interval oversize'
-            assert length/hori_number <= observation_max_interval * observation_rec_ratio, 'horizontal interval oversize'
+            assert width/verti_number <= observe_max_interval, 'vertical interval oversize'
+            assert length/hori_number <= observe_max_interval * observation_rec_ratio, 'horizontal interval oversize'
 
         except AssertionError as e:
             raise errors.OverlimitError from e
@@ -144,83 +275,53 @@ def prepare_observe_points(receive_fault: list[str], observation_max_interval: f
 
 
 
-def depth_minmax() -> list[float]: 
-    # get min and max depth from file "receive_fault.dat", return array (depth_min, depth_max)
-    depth = []
-    depth_stretch = []
-    from math import sin, radians, floor, ceil
-    with open(constant.CONFIG_PREFIX + 'receive_fault.dat', 'r') as receive_fault:
-        for line in receive_fault:
-            stripped_line = line.strip()
-            if not stripped_line or stripped_line.startswith('#'):
-                continue
-            split_line = stripped_line.split()
-            depth.append(float(split_line[3]))
-            depth_stretch.append(float(split_line[3]) + float(split_line[5]) * sin(radians(float(split_line[7]))))
+def read_settings(file_name: str, assertion: Callable[[list[list[str]]], None] = empty_assertion) -> list[list[str]]:
+    """
+    read and return settings from given file in LOG_PREFIX
 
-    settings_log.debug(f'print depth_minmax reading result: O_depth {depth}, dip {depth_stretch}')
-
-    depth_min = floor(min([min(depth), min(depth_stretch)]))
-    depth_max = ceil(max([max(depth), max(depth_stretch)]))
-    depth_range = [depth_min, depth_max]
-
-    assert depth_min >= 0, 'depth_min'
-    assert depth_max > depth_min, 'depth_range'
-
-    settings_log.debug(f'print depth_minmax calculation result: depth_stretch {depth_stretch}, depth_range {depth_range}')
-
-    return depth_range
-
-
-def calculation_setting():
-    # read calculation settings from file "calculation_setting.dat", return a float depth_step and a list storing other info
-
-    calculation_settings = []
-
-    with open(constant.CONFIG_PREFIX + 'calculation_setting.dat', 'r') as calculation_setting:
-        for line in calculation_setting:
-            if not line.strip() or line.startswith('#'):
-                continue
-            values = line.strip().split()
-            calculation_settings.append(values)
-    depth_step = float(calculation_settings[0][0])
-
-    assert depth_step > 0, 'depth_step'
-
-    settings_log.debug(f'print calculation_setting output: depth_step {depth_step}, calculation_settings {calculation_settings}')
-
-    return depth_step, calculation_settings
-
-
-
-def config():
-    # read config.dat file and return a list with info
-    configs = []
-
-    with open(constant.CONFIG_PREFIX + 'config.dat', 'r') as calculation_setting:
-        for line in calculation_setting:
-            if not line.strip() or line.startswith('#'):
-                continue
-            values = line.strip().split()
-            configs.append(values)
+    Args:
+        file_name(str): the config file name in CONFIG_PREFIX to read
+        assertion(Callable[[list[list[str]]], None]): the assertion to justify output data
     
-    settings_log.debug(f'config.dat read result: {configs}')
+    Returns:
+        r_settings(list[list[str]])
 
-    assert constant.TOF.contains(int(configs[0][0])), 'insar(1/0)'
-    if len(configs[0]) > 1:
-        assert constant.COS.contains(float(configs[0][1])), 'insar cosine value'
-        assert constant.COS.contains(float(configs[0][2])), 'insar cosine value'
-        assert constant.COS.contains(float(configs[0][3])), 'insar cosine value'
-    assert constant.TOF.contains(int(configs[1][0])), 'icmb'
-    if len(configs[1]) > 1:
-        assert float(configs[1][1]) > 0, 'friction factor'
-        assert constant.ANGLE1.contains(float(configs[1][3])), 'strike'
-        assert constant.ANGLE2.contains(float(configs[1][4])), 'dip'
-        assert constant.ANGLE3.contains(float(configs[1][5])), 'slip'
+    Returns:
+        errors.InputError:
+        errors.FuncError:
+        errors.UnexpectedError:                                                                     
+    """
+    try:
+        r_settings: list[list[str]] = []
+
+        try:
+            with open(constant.CONFIG_PREFIX + file_name, 'r') as read_setting:
+                for line in read_setting:
+                    if not line.strip() or line.startswith('#'):
+                        continue
+                    values = line.strip().split()
+                    r_settings.append(values)
+        
+        except Exception as e:
+            raise errors.FuncError from e
+
+        try:
+            assertion(r_settings)
+
+        except AssertionError as e:
+            raise errors.InputError from e
+
+        settings_log.debug(f'print read_settings output: read_settings {r_settings}')
+
+        return r_settings
     
-    settings_log.debug(f'configs: {configs}')
+    except (errors.InputError, errors.FuncError) as e:
+        raise e
+    
+    except Exception as e:
+        raise errors.UnexpectedError from e
 
-    return configs
+
 
 def combine_file(filename, depth):
     
@@ -233,7 +334,7 @@ def combine_file(filename, depth):
         open(constant.OUTPUT_PREFIX + filename, 'a') as write_file:
         
         with open(constant.OUTPUT_PREFIX + filename, 'r') as temp_file:
-            if (temp_file.read() == ''):
+            if (not temp_file.read()):
                 settings_log.debug(f'{filename} is found empty when processing depth {depth}, preparing to write title in it')
                 write_file.write('depth[km] ')
                 write_file.write(read_file.readline())

@@ -13,7 +13,7 @@ def build_grn_input(depth, calculation_settings):
 
     # override option will override any possible exist former file in temp/grn/
     # or the function will skip writing if there is any file in target folder
-    if (len(listdir(dir)) != 0):
+    if (listdir(dir)):
         grn_log.warning(f'grn file for depth {depth} already exists, skipping...')
         return 0
     
@@ -42,7 +42,7 @@ def build_grn_input(depth, calculation_settings):
                 grn_input.write(cleaned_line + '\n')
         
         except Exception as e:
-            raise errors.FunctionRunningError('build_grn_input')
+            raise errors.FuncError('build_grn_input')
     
     logger_all.logged_print(f'build psgrn input file for depth {depth}...', grn_log)
 

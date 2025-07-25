@@ -7,12 +7,12 @@ LOG_PREFIX = './logs/' # logfile route
 
 
 class Range:
-    def __init__(self, sub, up) -> None:
+    def __init__(self, sub: float, up: float) -> None:
         self.sub = sub
         self.up = up
-    def contains(self, number) -> bool:
+    def contains(self, number: float) -> bool:
         return self.sub <= number <= self.up
-    def abs_contains(self, number) -> bool:
+    def abs_contains(self, number: float) -> bool:
         return self.sub < number < self.up
     def __str__(self) -> str:
         return f'Range: from {self.sub} to {self.up}'
@@ -22,7 +22,7 @@ class Range:
 class BoolenNumber:
     def __init__(self) -> None:
         pass
-    def contains(self, number) -> bool:
+    def contains(self, number: int) -> bool:
         return number in (0, 1)
     def __str__(self) -> str:
         return 'int 0 or int 1'
@@ -30,6 +30,8 @@ class BoolenNumber:
 
 
 TOF = BoolenNumber()
+AC = Range(0.01, 0.1)
+ZO = Range(0, 1)
 COS = Range(-1, 1)
 ANGLE1 = Range(0, 360)
 ANGLE2 = Range(-90, 90)
