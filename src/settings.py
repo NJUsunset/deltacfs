@@ -7,6 +7,28 @@ settings_log = logger_all.setlogger('settings')
 
 
 
+def depth_name(depth: float) -> str:
+    """
+    turn float depth into string form and replace . with _ to avoid suffix problem
+
+    Args:
+        depth(float):
+    
+    Returns:
+        depth_name(str)
+    
+    Raises:
+        errors.OverlimitError: raise when depth minus zero
+    """
+    try:
+        assert depth >= 0.0
+        return f'{depth:.2f}'.replace('.', '_')
+    
+    except AssertionError as e:
+        raise errors.OverlimitError from e
+
+
+
 def interact_and_clean(logger: logging.Logger) -> None:
     """
     ask user to save data and make clean
@@ -280,7 +302,7 @@ def read_settings(file_name: str, assertion: Callable[[list[list[str]]], None] =
     read and return settings from given file in LOG_PREFIX
 
     Args:
-        file_name(str): the config file name in CONFIG_PREFIX to read
+        file_name(str): the config file name with suffix in CONFIG_PREFIX to read
         assertion(Callable[[list[list[str]]], None]): the assertion to justify output data
     
     Returns:

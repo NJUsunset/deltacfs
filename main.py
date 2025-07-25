@@ -1,4 +1,4 @@
-from src import constant, errors, grn_input, cmp_input, logger_all, settings
+from src import constant, errors, grn_input, input, logger_all, settings
 import logging
 from os import makedirs, listdir
 
@@ -13,74 +13,56 @@ def main() -> None:
 
     settings.interact_and_clean(log)
 
+    # read settings from config/
+    calculation_settings = settings.read_settings('calculation_setting.dat', settings.calculation_setting_assertion)
+    configs = settings.read_settings('config.dat', settings.config_assertion)
+    receive_fault_list = settings.read_settings('receive_fault.dat')
 
-    calculation_settings = settings.read_settings('calculation_setting', settings.calculation_setting_assertion)
-    configs = settings.read_settings('config', settings.config_assertion)
+    observe_max_interval = float(calculation_settings[0][0])
 
-    settings.prepare_observe_points()
+    # make temp dir
+    makedirs(constant.TEMP_PREFIX + 'cmp_input/', exist_ok=True)
+    makedirs(constant.TEMP_PREFIX + 'cmp_input/', exist_ok=True)
 
+    # calculate green func and stress for each depth
+    depth_list_all: list[float] = []
+    
+    i = 0
+    while i < len(receive_fault_list):
+        depth_list, _, observe_points= settings.prepare_observe_points(receive_fault_list[i], observe_max_interval)
+        depth_list_all += depth_list
+        
+        i = i + 1
+        for depth in depth_list:
 
-    try:
-        if ifcmp != 'n':
-            logger_all.logged_print('stress calculation running...', log)
+            input.build_grn_input(depth, calculation_settings)
+            state = logger_all.logged_run(['bash', './src/psgrn.sh', constant.TEMP_PREFIX + 'grn_input/' + settings.depth_name(depth) + '.grn'],
+                                          fortran_log)
+            log.info(f'psgrn.sh finished for depth {depth}')
 
-            if ifcmp == 'y':
-                log.info('Overriding existing deltacfs...')
-
-            
-            makedirs(constant.TEMP_PREFIX + 'cmp_input/', exist_ok=True)
-            for depth in depth_array:
-                try:
-                    cmp_input.build_cmp_input(depth, observation_max_interval, configs)
-                    state = logger_all.logged_run(['bash', './src/pscmp.sh', constant.TEMP_PREFIX + 'cmp_input/' + str(depth) + '.cmp'], fortran_log)
-                    log.info(f'pscmp.sh finished for depth {depth}.')
-                
-                except AssertionError as e:
-                    log.warning(e)
-                    pass
-
-    except errors.CommandRunningError as e:
-        log.error(e)
-        logger_all.logged_print(f'{e}, please check\nprogram exiting...', log)
-        exit()
-
-    except errors.FunctionRunningError as e:
-        log.error(e)
-        logger_all.logged_print(f'{e}, please check\npropgram exiting...', log)
-        exit()
-
-    except Exception as e:
-        log.error(e)
-        logger_all.logged_print(f'unforeseen error when processing stress calculation, error infomation: {e}\nprogram exiting...', log)
-        exit()
+            input.build_cmp_input(depth, observe_points, configs)
+            state = logger_all.logged_run(['bash', './src/pscmp.sh', constant.TEMP_PREFIX + 'cmp_input/' + settings.depth_name(depth) + '.cmp'],
+                                          fortran_log)
+            log.info(f'pscmp.sh finished for depth {depth}.')
 
 
-    try:
-        if ifap != 'n':
-            logger_all.logged_print('afterprocess running...', log)
-            filelist = listdir(constant.TEMP_PREFIX + 'cmp/' + str(depth_array[0]))
-            log.debug(f'readed file list: {filelist}')
+    # combine result into a single file
+    logger_all.logged_print('afterprocess running...', log)
+    filelist = listdir(constant.TEMP_PREFIX + 'cmp/' + settings.depth_name(depth_list_all[0]))
+    log.debug(f'readed file list: {filelist}')
 
-            if ifap == 'y':
+    makedirs(constant.OUTPUT_PREFIX, exist_ok=True)
 
-
-            makedirs(constant.OUTPUT_PREFIX, exist_ok=True)
-
-            for filename in filelist:
-                for depth in depth_array:
-                    try:
-                        settings.combine_file(filename, depth)
-                    except AssertionError as e:
-                        log.warning(e)
-                        continue
-            
-                log.info(f'{filename} write finished')
-            logger_all(f'afterprocess for filelist {filelist} finished.')
-
-    except Exception as e:
-        log.error(e)
-        logger_all.logged_print(f'unforeseen error at afterprocess, error information: {e}\nprogram exiting', log)
-        exit()
+    for filename in filelist:
+        for depth in depth_list:
+            try:
+                settings.combine_file(filename, depth)
+            except AssertionError as e:
+                log.warning(e)
+                continue
+    
+        log.info(f'{filename} write finished')
+    logger_all.logged_print(f'afterprocess for filelist {filelist} finished.', log)
 
 
     logger_all.logged_print('main.py finished.', log)
