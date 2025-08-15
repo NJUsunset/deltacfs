@@ -48,8 +48,7 @@ def interact_and_clean(logger: logging.Logger) -> None:
         valid_input = ['Confirm', 'ALL', 'exit']
         run = logger_all.logged_input('The program will erase all file in output adn temp folder\n \
                                         all privious data will be loss, please save them before further action\n \
-                                        type Confirm below to make further run, \
-                                        ALL option will additionally clean log file: (Confirm/ALL/exit)\n', logger, valid_input)
+                                        type Confirm below to make further run(Confirm/exit)\n', logger, valid_input)
 
         from shutil import rmtree
         try:
@@ -67,19 +66,8 @@ def interact_and_clean(logger: logging.Logger) -> None:
                 logger.debug('cleaning existing output file...')
                 rmtree(constant.OUTPUT_PREFIX, ignore_errors=True)
                 logger.info('clean process finished')
-            elif run == 'ALL':
-                logger_all.logged_print('accept all clean confirmation, program cleaning...', logger)
-                logger.debug('cleaning existing green function set...')
-                rmtree(constant.TEMP_PREFIX + 'grn/', ignore_errors=True)
-                rmtree(constant.TEMP_PREFIX + 'grn_input/', ignore_errors=True)
-                logger.debug('cleaning existing deltacfs...')
-                rmtree(constant.TEMP_PREFIX + 'cmp/', ignore_errors=True)
-                rmtree(constant.TEMP_PREFIX + 'cmp_input/', ignore_errors=True)
-                logger.debug('cleaning existing output file...')
-                rmtree(constant.OUTPUT_PREFIX, ignore_errors=True)
-                logger.debug('cleaning existing log file...')
-                rmtree(constant.LOG_PREFIX, ignore_errors=True)
-                logger.info('clean process finished')
+            else:
+                raise errors.InputError
         
         except Exception as e:
             raise errors.FuncError('rmtree') from e
@@ -264,7 +252,7 @@ def prepare_observe_points(receive_fault: list[str], observe_max_interval: float
 
             for j in range(verti_number - 1):
                 for i in range(hori_number - 1):
-                    op_lon, op_lat = xy2ll.transform(0.5*(xs_local[i] + xs_local[i+1]), 0.5*(ys_local[j] + ys_local[i+1]))
+                    op_lon, op_lat = xy2ll.transform(0.5*(xs_local[i] + xs_local[i+1]), 0.5*(ys_local[j] + ys_local[j+1]))
                     op_depth = O_depth + width / verti_number * (j+0.5) / tan(radians(dip_angle))
                     observe_points.append((op_lon, op_lat, op_depth))
                     depth_list.append(op_depth)

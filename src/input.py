@@ -77,7 +77,7 @@ def build_cmp_input(depth: float, observe_points: list[tuple[float, float, float
                         folder path is {dir}, skipping...')
         return None
 
-    with open(dir.replace('cmp/', 'cmp_input/'), 'a') as cmp_input, open(constant.CONFIG_PREFIX + 'source_fault.dat', 'r') as source_fault:
+    with open(dir.replace('cmp/', 'cmp_input/') + '.cmp', 'a') as cmp_input, open(constant.CONFIG_PREFIX + 'source_fault.dat', 'r') as source_fault:
         cmp_input.write('0\n')
         cmp_input.write(f'{len(observe_points)}\n')
 
