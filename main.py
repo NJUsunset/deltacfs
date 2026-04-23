@@ -1,4 +1,4 @@
-from src import constant, grn_input, cmp_input, logger_all, error, settings
+from src import constant, grn_input, cmp_input, logger_all, error, settings, consolidate
 from shutil import rmtree
 import os
 
@@ -146,6 +146,10 @@ try:
         
             log.info(f'{filename} write finished')
         logger_all.logged_print(f'afterprocess for filelist {filelist} finished.', log)
+
+        # consolidate all depth results into a single merged file
+        consolidate.consolidate_cmp_results()
+        logger_all.logged_print('consolidate all depth results finished.', log)
 
 except Exception as e:
     log.error(e)

@@ -114,9 +114,10 @@ def build_cmp_input(depth, observation_max_interval, configs):
                 cmp_input.write('\n') if newline_count == 6 else cmp_input.write(' ')
             
             cmp_input.write(f'\n{configs[0][0]}\n')
-            if (configs[0][0] == 1): cmp_input.write(f'{configs[0][0]} {configs[0][1]} {configs[0][2]} {configs[0][3]}\n')
+            if configs[0][0] == '1':
+                cmp_input.write(f'{configs[0][0]} {configs[0][1]} {configs[0][2]} {configs[0][3]}\n')
             cmp_input.write(f'{configs[1][0]}\n')
-            if (configs[1][0] == 1): 
+            if configs[1][0] == '1':
                 cmp_input.write(f'{configs[1][0]} {configs[1][1]} {configs[1][2]} ')
                 cmp_input.write(f'{configs[1][3]} {configs[1][4]} {configs[1][5]} ')
                 cmp_input.write(f'{configs[1][6]} {configs[1][7]} {configs[1][8]}\n')
