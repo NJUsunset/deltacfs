@@ -11,7 +11,7 @@ fi
 input="$1"
 
 if [[ "$input" == *.cmp ]]; then
-    echo $input | /usr/local/bin/fomosto_pscmp2008a
+    echo $input | fomosto_pscmp2008a
 else
     echo "ERROR: wrong input file type for pscmp!"
     exit 1

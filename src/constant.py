@@ -1,14 +1,18 @@
 """Path constants and validation helpers shared across the deltacfs pipeline."""
 
+import os
 from src import logger_all
 
-# Directory prefixes — relative to the project root.  All code assumes it is
-# invoked from the project root; see README.md for the expected layout.
-CONFIG_PREFIX = './config/'
-TEMP_PREFIX = './temp/'
-SRC_PREFIX = './src/'
-OUTPUT_PREFIX = './output/'
-LOG_PREFIX = './logs/'
+# The project root is the parent directory of this src/ package.  All path
+# constants are resolved once at import time so the code can be invoked from
+# any working directory.
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+CONFIG_PREFIX = os.path.join(_PROJECT_ROOT, 'config') + os.sep
+TEMP_PREFIX   = os.path.join(_PROJECT_ROOT, 'temp')   + os.sep
+SRC_PREFIX    = os.path.join(_PROJECT_ROOT, 'src')     + os.sep
+OUTPUT_PREFIX = os.path.join(_PROJECT_ROOT, 'output')  + os.sep
+LOG_PREFIX    = os.path.join(_PROJECT_ROOT, 'logs')    + os.sep
 
 # Shared PSCMP output filenames used by both grn_input and cmp_input modules.
 GRN_OUTPUT_FILENAMES = (

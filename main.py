@@ -9,17 +9,18 @@ Phases (each can be toggled via interactive prompt):
   1. Green's function computation (PSGRN)
   2. Coulomb stress computation (PSCMP)
   3. After-process: merge per-depth output + write GMT-compatible files
+  4. Plot Coulomb stress cross-section (GMT)
+  5. Clean generated files
 
 Usage:
     python3 main.py          # interactive (y / no-override / n)
-    python3 main.py --help   # not yet supported
-
-For a non-interactive wrapper, use:  ./src/run.sh
+    ./src/run.sh             # convenience wrapper
 """
 
 from src import (
     constant, grn_input, cmp_input, logger_all, error, settings, consolidate,
 )
+from src.plot_coulomb import plot_coulomb_section
 from shutil import rmtree
 import os
 
@@ -59,40 +60,69 @@ except error.InputValueError as e:
 
 
 # ---------------------------------------------------------------------------
-# Interactive mode prompts
+# Interactive prompts — ask the user which phases to run
 # ---------------------------------------------------------------------------
 try:
     logger_all.logged_print(
-        'setup all files in config folder before running this script.', log
+        'Setup all files in config/ before running.', log
     )
-    logger_all.logged_print('calculate.py running...', log)
+    logger_all.logged_print(
+        'Phases available:\n'
+        '  1. Green\'s function computation   (PSGRN)\n'
+        '  2. Coulomb stress computation      (PSCMP)\n'
+        '  3. After-process                   (merge outputs)\n'
+        '  4. Plot Coulomb cross-section      (GMT)\n'
+        '  5. Clean generated files           (temp/ logs/ output/)\n',
+        log,
+    )
+
     ifgrn = logger_all.logged_input(
-        'Do you want to calculate green function set? '
-        '(y/no-override/n): \n',
+        'Run phase 1 — Green\'s function set? (y/no-override/n): \n',
         log,
     )
     ifcmp = logger_all.logged_input(
-        'Do you want to calculate deltacfs? (y/no-override/n): \n', log
+        'Run phase 2 — Coulomb stress ΔCFS? (y/no-override/n): \n',
+        log,
     )
     ifap = logger_all.logged_input(
-        'Do you want to make after process?(y/no-override/n)\n', log
+        'Run phase 3 — after-process? (y/no-override/n): \n',
+        log,
+    )
+    ifplot = logger_all.logged_input(
+        'Run phase 4 — plot Coulomb cross-section? (y/n): \n',
+        log,
+    )
+    ifclean = logger_all.logged_input(
+        'Run phase 5 — clean generated files? (y/n): \n',
+        log,
     )
 
 except KeyboardInterrupt as e:
     log.warning(e)
     logger_all.logged_print(
-        'User keyboard interupt, program exiting...', log
+        'User keyboard interrupt, program exiting...', log
     )
     exit()
 
 except Exception as e:
     log.error(e)
     logger_all.logged_print(
-        f'unforeseen error when processing log initialise, error info: {e}\n'
-        'program exiting...',
+        f'Unforeseen error when processing log initialise, '
+        f'error info: {e}\nprogram exiting...',
         log,
     )
     exit()
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — Clean (runs early if requested, skips later phases)
+# ---------------------------------------------------------------------------
+if ifclean == 'y':
+    logger_all.logged_print('Cleaning generated files...', log)
+    for d in (constant.TEMP_PREFIX, constant.LOG_PREFIX, constant.OUTPUT_PREFIX):
+        rmtree(d, ignore_errors=True)
+    logger_all.logged_print('Done.', log)
+    # Don't exit — other phases may regenerate what they need.
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +152,7 @@ except AssertionError as e:
 except Exception as e:
     log.error(e)
     logger_all.logged_print(
-        f'unforeseen error occur when processing depth list calculation, '
+        f'Unforeseen error when processing depth list calculation, '
         f'error info: {e}\nprogram exiting...',
         log,
     )
@@ -132,10 +162,10 @@ except Exception as e:
 # ---------------------------------------------------------------------------
 # Phase 1 — Green's function (PSGRN)
 # ---------------------------------------------------------------------------
-try:
-    if ifgrn != 'n':
+if ifgrn != 'n':
+    try:
         logger_all.logged_print(
-            'green function construct running...', log
+            'Phase 1 — Green\'s function construct running...', log
         )
 
         if ifgrn == 'y':
@@ -149,43 +179,45 @@ try:
             logger_all.logged_run(
                 [
                     'bash',
-                    './src/psgrn.sh',
+                    constant.SRC_PREFIX + 'psgrn.sh',
                     constant.TEMP_PREFIX + 'grn_input/' + str(depth) + '.grn',
                 ],
                 fortran_log,
             )
             log.info(f'psgrn.sh finished for depth {depth}.')
 
-except error.CommandRunningError as e:
-    log.error(e)
-    logger_all.logged_print(
-        f'{e}, please check\nprogram exiting...', log
-    )
-    exit()
+    except error.CommandRunningError as e:
+        log.error(e)
+        logger_all.logged_print(
+            f'{e}, please check\nprogram exiting...', log
+        )
+        exit()
 
-except error.FunctionRunningError as e:
-    log.error(e)
-    logger_all.logged_print(
-        f'{e}, please check\npropgram exiting...', log
-    )
-    exit()
+    except error.FunctionRunningError as e:
+        log.error(e)
+        logger_all.logged_print(
+            f'{e}, please check\nprogram exiting...', log
+        )
+        exit()
 
-except Exception as e:
-    log.error(e)
-    logger_all.logged_print(
-        f'unforeseen error when processing green function calculation, '
-        f'error info: {e}\nprogram exiting...',
-        log,
-    )
-    exit()
+    except Exception as e:
+        log.error(e)
+        logger_all.logged_print(
+            f'Unforeseen error in phase 1, '
+            f'error info: {e}\nprogram exiting...',
+            log,
+        )
+        exit()
 
 
 # ---------------------------------------------------------------------------
 # Phase 2 — Coulomb stress change (PSCMP)
 # ---------------------------------------------------------------------------
-try:
-    if ifcmp != 'n':
-        logger_all.logged_print('stress calculation running...', log)
+if ifcmp != 'n':
+    try:
+        logger_all.logged_print(
+            'Phase 2 — Coulomb stress calculation running...', log
+        )
 
         if ifcmp == 'y':
             log.info('Overriding existing deltacfs...')
@@ -201,7 +233,7 @@ try:
                 logger_all.logged_run(
                     [
                         'bash',
-                        './src/pscmp.sh',
+                        constant.SRC_PREFIX + 'pscmp.sh',
                         constant.TEMP_PREFIX
                         + 'cmp_input/'
                         + str(depth)
@@ -213,38 +245,37 @@ try:
 
             except AssertionError as e:
                 log.warning(e)
-                pass
 
-except error.CommandRunningError as e:
-    log.error(e)
-    logger_all.logged_print(
-        f'{e}, please check\nprogram exiting...', log
-    )
-    exit()
+    except error.CommandRunningError as e:
+        log.error(e)
+        logger_all.logged_print(
+            f'{e}, please check\nprogram exiting...', log
+        )
+        exit()
 
-except error.FunctionRunningError as e:
-    log.error(e)
-    logger_all.logged_print(
-        f'{e}, please check\npropgram exiting...', log
-    )
-    exit()
+    except error.FunctionRunningError as e:
+        log.error(e)
+        logger_all.logged_print(
+            f'{e}, please check\nprogram exiting...', log
+        )
+        exit()
 
-except Exception as e:
-    log.error(e)
-    logger_all.logged_print(
-        f'unforeseen error when processing stress calculation, '
-        f'error infomation: {e}\nprogram exiting...',
-        log,
-    )
-    exit()
+    except Exception as e:
+        log.error(e)
+        logger_all.logged_print(
+            f'Unforeseen error in phase 2, '
+            f'error info: {e}\nprogram exiting...',
+            log,
+        )
+        exit()
 
 
 # ---------------------------------------------------------------------------
 # Phase 3 — After-process (combine + consolidate)
 # ---------------------------------------------------------------------------
-try:
-    if ifap != 'n':
-        logger_all.logged_print('afterprocess running...', log)
+if ifap != 'n':
+    try:
+        logger_all.logged_print('Phase 3 — afterprocess running...', log)
 
         first_cmp_dir = (
             constant.TEMP_PREFIX + 'cmp/' + str(depth_array[0])
@@ -256,10 +287,10 @@ try:
             )
         else:
             filelist = os.listdir(first_cmp_dir)
-            log.debug(f'readed file list: {filelist}')
+            log.debug(f'Read file list: {filelist}')
 
             if ifap == 'y':
-                log.info('Overriding existing outputfile...')
+                log.info('Overriding existing output files...')
                 rmtree(constant.OUTPUT_PREFIX, ignore_errors=True)
 
             os.makedirs(constant.OUTPUT_PREFIX, exist_ok=True)
@@ -275,22 +306,50 @@ try:
                 log.info(f'{filename} write finished')
 
             logger_all.logged_print(
-                f'afterprocess for filelist {filelist} finished.', log
+                f'After-process for {filelist} finished.', log
             )
 
             consolidate.consolidate_cmp_results()
             logger_all.logged_print(
-                'consolidate all depth results finished.', log
+                'Consolidate all depth results finished.', log
             )
 
-except Exception as e:
-    log.error(e)
-    logger_all.logged_print(
-        f'unforeseen error at afterprocess, error information: {e}\n'
-        'program exiting',
-        log,
-    )
-    exit()
+    except Exception as e:
+        log.error(e)
+        logger_all.logged_print(
+            f'Unforeseen error in phase 3, error info: {e}\n'
+            'program exiting',
+            log,
+        )
+        exit()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Plot Coulomb cross-section (GMT)
+# ---------------------------------------------------------------------------
+if ifplot == 'y':
+    try:
+        logger_all.logged_print(
+            'Phase 4 — Plotting Coulomb cross-section...', log
+        )
+        plot_coulomb_section()
+        logger_all.logged_print('Plot finished.', log)
+
+    except FileNotFoundError as e:
+        log.error(e)
+        logger_all.logged_print(
+            f'{e} — run phases 2 and 3 first.\n'
+            'Skipping plot.',
+            log,
+        )
+
+    except Exception as e:
+        log.error(e)
+        logger_all.logged_print(
+            f'Unforeseen error in phase 4, error info: {e}\n'
+            'Skipping plot.',
+            log,
+        )
 
 
 logger_all.logged_print('main.py finished.', log)
