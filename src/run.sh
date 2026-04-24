@@ -1,2 +1,2 @@
 #!/usr/bin/bash
-~/anaconda3/envs/deltacfs/bin/python3 main.py
+/home/sunset/miniconda3/envs/deltacfs/bin/python3 main.py
