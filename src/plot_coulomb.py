@@ -8,6 +8,7 @@ All GMT commands are invoked via subprocess so no external shell wrapper is
 needed beyond a GMT 6 installation in PATH.
 """
 
+import math
 import os
 import subprocess
 import tempfile
@@ -69,6 +70,24 @@ def _build_fault_plane_xyz(input_path, output_path, observation_interval):
     depth_max = max(depths)
 
     return dist_max, depth_max, absmax
+
+
+def _nice_interval(data_range):
+    """Return a round annotation interval for the colour bar.
+
+    Snaps the rough interval (range / 5) to 1, 2, or 5 × 10^n so the
+    colour bar shows 4–8 ticks regardless of the data range.
+    """
+    rough = data_range / 5
+    exponent = math.floor(math.log10(rough))
+    mantissa = rough / 10 ** exponent
+    if mantissa < 1.5:
+        nice = 1
+    elif mantissa < 3.5:
+        nice = 2
+    else:
+        nice = 5
+    return int(nice * 10 ** exponent)
 
 
 def _run_gmt(*args, check=True, **kwargs):
@@ -141,7 +160,7 @@ def plot_coulomb_section(cmb_min=None, cmb_max=None):
         # Diverging CPT centred at 0, symmetrical range.
         _run_gmt(
             'makecpt', '-Cpolar',
-            f'-T{cmb_min}/{cmb_max}/100',
+            f'-T{cmb_min}/{cmb_max}/{(cmb_max-cmb_min)/10:.2e}',
             stdout=open(cpt_path, 'w'),
         )
 
@@ -171,11 +190,12 @@ def plot_coulomb_section(cmb_min=None, cmb_max=None):
             stdout=open(ps_path, 'w'),
         )
 
-        # Colour bar on the right side.
+        # Colour bar on the right side — annotation interval adapts to range.
+        cb_interval = _nice_interval(cmb_max - cmb_min)
         _run_gmt(
             'psscale', f'-C{cpt_path}',
             '-Dx16c/3c+w8c/0.35c',
-            '-Bxa5000+l"CMB_Fix (MPa)"',
+            f'-Bxa{cb_interval}+l"CMB_Fix (MPa)"',
             '-O',
             '--FONT_ANNOT_PRIMARY=8p', '--FONT_LABEL=10p',
             stdout=open(ps_path, 'a'),
