@@ -20,67 +20,73 @@ The pipeline has five phases:
 
 Each phase is toggled independently at runtime (`y` / `no-override` / `n` for computation phases; `y` / `n` for plot and clean).
 
-## Requirements
+## Environment Setup
 
-- **Python 3.12+** with `pyproj==3.7.0` (see `requirements.txt`)
-- **PSGRN/PSCMP** Fortran binaries (`fomosto_psgrn2008a` and `fomosto_pscmp2008a`) on `$PATH`
-- **GMT 6** (required for the plot phase)
-- **Ghostscript** (required for PS → PDF conversion in the plot phase)
+### 1. Clone and enter the project
 
-The project auto-detects its own root directory and can be invoked from any working directory.
+```bash
+git clone <repo-url> deltacfs
+cd deltacfs
+```
+
+### 2. Python environment
+
+Python 3.12+ is required.  Using conda:
+
+```bash
+conda create -n deltacfs python=3.12 -y
+conda activate deltacfs
+pip install -r requirements.txt
+```
+
+The only external Python dependency is `pyproj==3.7.0`.  All other modules are from the standard library.
+
+Verify:
+
+```bash
+python3 -c "import pyproj; print('pyproj', pyproj.__version__)"
+```
+
+### 3. Fortran binaries (PSGRN / PSCMP)
+
+The pipeline invokes `fomosto_psgrn2008a` and `fomosto_pscmp2008a`.  These must be on `$PATH`.
+
+Verify:
+
+```bash
+which fomosto_psgrn2008a fomosto_pscmp2008a
+```
+
+If you built them from source (e.g. the `fomosto-psgrn-pscmp` repository), ensure the install prefix's `bin/` directory is in `$PATH` or symlink the binaries into `/usr/local/bin/`.
+
+### 4. GMT 6 (optional — required for the plot phase)
+
+GMT 6 must be installed and the `gmt` executable on `$PATH`.
+
+Verify:
+
+```bash
+gmt --version
+```
+
+### 5. Ghostscript (optional — required for PS → PDF conversion)
+
+Verify:
+
+```bash
+gs --version
+```
+
+Without Ghostscript the plot phase will produce a `.ps` file but not convert it to `.pdf`.
 
 ## Quick Start
 
 ```bash
 # Interactive run — choose which phases to execute
 python3 main.py
-
-# Or use the shell wrapper (cd's to project root first)
-./src/run.sh
-
-# Clean generated files (also available as phase 5 in main.py)
-./src/clean.sh
 ```
 
-## Project Structure
-
-```
-deltacfs/
-├── main.py              # Unified entry point — all five phases
-├── src/
-│   ├── constant.py      # Absolute-path constants, validators
-│   ├── settings.py      # Config file readers
-│   ├── error.py         # Custom exception hierarchy
-│   ├── logger_all.py    # Logging, subprocess, prompt helpers
-│   ├── grn_input.py     # PSGRN input generator
-│   ├── cmp_input.py     # PSCMP input generator (obs. points, prestress)
-│   ├── consolidate.py   # Per-depth merge + GMT XYZ writer
-│   ├── plot_coulomb.py  # GMT fault-plane cross-section plotter
-│   ├── run.sh           # Shell wrapper (cd + python3 main.py)
-│   ├── psgrn.sh         # PSGRN Fortran launcher
-│   ├── pscmp.sh         # PSCMP Fortran launcher
-│   └── clean.sh         # Remove temp/ logs/ output/
-├── config/              # User-editable parameter files
-│   ├── receiving_fault.dat
-│   ├── source_fault.dat
-│   ├── calculation_setting.dat
-│   ├── config.dat
-│   └── model.dat
-├── output/              # Generated results (created at runtime)
-│   ├── consolidated.dat
-│   ├── gmt_coulomb.xyz
-│   └── coulomb_fault_plane.pdf
-├── temp/                # Intermediate files (created at runtime)
-│   ├── grn_input/       # .grn files
-│   ├── grn/{depth}/     # Green's function output
-│   ├── cmp_input/       # .cmp files
-│   └── cmp/{depth}/     # PSCMP output per depth
-└── logs/                # Timestamped log files
-```
-
-## Interactive Dialogue
-
-On startup, `main.py` prints the available phases and prompts:
+On startup you will see:
 
 ```
 Setup all files in config/ before running.
@@ -99,9 +105,48 @@ Run phase 5 — clean generated files? (y/n):
 ```
 
 Valid responses:
-- **`y`** — override existing data and run
-- **`no-override`** — run only if output doesn't already exist
-- **`n`** — skip this phase
+
+| Response | Meaning |
+|----------|---------|
+| `y` | Override existing data and run |
+| `no-override` | Run only if output doesn't already exist |
+| `n` | Skip this phase |
+
+## Project Structure
+
+```
+deltacfs/
+├── main.py              # Unified entry point — all five phases
+├── src/
+│   ├── constant.py      # Absolute-path constants, validators
+│   ├── settings.py      # Config file readers
+│   ├── error.py         # Custom exception hierarchy
+│   ├── logger_all.py    # Logging, subprocess, prompt helpers
+│   ├── grn_input.py     # PSGRN input generator
+│   ├── cmp_input.py     # PSCMP input generator (obs. points, prestress)
+│   ├── consolidate.py   # Per-depth merge + GMT XYZ writer
+│   ├── plot_coulomb.py  # GMT fault-plane cross-section plotter
+│   ├── run.sh           # Convenience wrapper (cd + python3 main.py)
+│   ├── psgrn.sh         # PSGRN Fortran launcher
+│   ├── pscmp.sh         # PSCMP Fortran launcher
+│   └── clean.sh         # Remove generated files (portable)
+├── config/              # User-editable parameter files
+│   ├── receiving_fault.dat
+│   ├── source_fault.dat
+│   ├── calculation_setting.dat
+│   ├── config.dat
+│   └── model.dat
+├── output/              # Generated results (created at runtime)
+│   ├── consolidated.dat
+│   ├── gmt_coulomb.xyz
+│   └── coulomb_fault_plane.pdf
+├── temp/                # Intermediate files (created at runtime)
+│   ├── grn_input/       # .grn files
+│   ├── grn/{depth}/     # Green's function output
+│   ├── cmp_input/       # .cmp files
+│   └── cmp/{depth}/     # PSCMP output per depth
+└── logs/                # Timestamped log files
+```
 
 ## Config Files
 
@@ -156,10 +201,11 @@ The plot is a cross-section of the receiving fault plane: distance along strike 
 ## Portability
 
 - All internal paths are resolved to absolute paths at import time via `src/constant.py`.  `main.py` can be invoked from any working directory.
-- The Fortran binaries are expected on `$PATH` (the shell launchers use `fomosto_psgrn2008a` / `fomosto_pscmp2008a` without absolute paths).
+- The Fortran binaries are expected on `$PATH`.
+- The shell scripts in `src/` (`run.sh`, `clean.sh`, `psgrn.sh`, `pscmp.sh`) all resolve the project root at runtime and can be invoked from any working directory.
 - The only Python dependency beyond the standard library is `pyproj`.
 
 ## Notes
 
 - The horizontal observation point spacing is `depth_step × 2` km by design, matching the `observation_max_interval` argument to `build_cmp_input`.
-- At depth 8 km the earth model has a significant layer boundary (Vp/Vs/ρ change), which produces a visible discontinuity in CMB_Fix values at that depth.  Use `CMB_MIN` / `CMB_MAX` environment variables to narrow the colour range if shallow detail is obscured.
+- At depth 8 km the earth model has a significant layer boundary (Vp/Vs/ρ change), which produces a visible discontinuity in CMB_Fix values at that depth.

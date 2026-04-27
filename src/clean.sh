@@ -1,6 +1,12 @@
 #!/usr/bin/bash
-echo 'cleaning running file for upload...'
-rm -r ./temp/
-rm -r ./logs/
-rm -r ./output/
+# Remove all generated files.  Safe to invoke from any working directory.
+
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+echo 'Cleaning generated files...'
+rm -rf "$PROJECT_DIR/temp"
+rm -rf "$PROJECT_DIR/logs"
+rm -rf "$PROJECT_DIR/output"
 echo 'Done.'
