@@ -195,7 +195,7 @@ def plot_coulomb_section(cmb_min=None, cmb_max=None):
         # Diverging CPT centred at 0, symmetrical range.
         _run_gmt(
             'makecpt', '-Cpolar',
-            f'-T{cmb_min}/{cmb_max}/{(cmb_max-cmb_min)/10:.2e}',
+            f'-T{cmb_min}/{cmb_max}/{(cmb_max-cmb_min)/50:.2e}',
             stdout=open(cpt_path, 'w'),
         )
 
@@ -228,11 +228,13 @@ def plot_coulomb_section(cmb_min=None, cmb_max=None):
             stdout=open(ps_path, 'w'),
         )
 
-        # Colour bar on the right side — annotation interval adapts to range.
+        # Colour bar vertically centred on the plot.
+        # J=-9c → projected Y ranges from 0 (top) to -9c (bottom);
+        # midpoint is -4.5c.
         cb_interval = _nice_interval(cmb_max - cmb_min)
         _run_gmt(
             'psscale', f'-C{cpt_path}',
-            '-Dx16c/3c+w8c/0.35c',
+            '-Dx16c/-4.5c+w8c/0.35c',
             f'-Bxa{cb_interval}+l"CMB_Fix (MPa)"',
             '-O',
             '--FONT_ANNOT_PRIMARY=8p', '--FONT_LABEL=10p',
