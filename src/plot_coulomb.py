@@ -36,40 +36,76 @@ def _read_depth_step_and_interval():
 
 
 def _build_fault_plane_xyz(input_path, output_path, observation_interval):
-    """Convert (lon, lat, depth, cmb) → (dist_along_strike, depth, cmb).
+    """Convert (lon, lat, depth, cmb) → cell-centred (dist, depth, cmb).
 
-    Distance is assigned by point index within each depth level since the
-    observation points were generated at equal spacing along strike via
-    geod.fwd.  Geodesic distance is NOT recomputed because lon/lat in the
-    output file have already been through a Fortran complex-number round-trip
-    that can introduce coordinate-order inconsistencies.
+    Builds a 2-D array of CMB values indexed by [depth_idx][strike_idx], then
+    writes each rectangular cell as a pixel-registered point whose value is
+    the mean of its four corner data points.  No smoothing or interpolation
+    is applied — each cell's colour represents exactly the average of its
+    four vertices.
+
+    Returns:
+        dist_max:  Along-strike extent (km) of the full data array.
+        depth_max: Maximum depth (km) of the full data array.
+        absmax:    Absolute maximum |CMB_Fix| across all data points.
+        dist_inc:  Along-strike cell width (km).
+        depth_inc: Depth cell height (km).
+        cell_centers:  (n_cells_strike, n_cells_depth) — for grid info.
     """
     with open(input_path) as f:
         raw = [l.split() for l in f if not l.startswith('#') and l.strip()]
 
+    # Group data by depth, preserving order within each depth.
     by_depth = defaultdict(list)
-    for lon, lat, depth, cmb, *_ in raw:
-        by_depth[float(depth)].append((float(lon), float(lat), float(cmb)))
+    depth_set = set()
+    for lon, lat, depth_str, cmb, *_ in raw:
+        d = float(depth_str)
+        by_depth[d].append(float(cmb))
+        depth_set.add(d)
 
     depths = sorted(by_depth.keys())
-    all_cmb = [c for pts in by_depth.values() for (_, _, c) in pts]
-
     n_pts = len(by_depth[depths[0]])
+    n_depths = len(depths)
+
+    # Build 2-D array: grid[depth_idx][strike_idx]
+    grid_2d = []
+    for d in depths:
+        vals = by_depth[d]
+        assert len(vals) == n_pts
+        grid_2d.append(vals)
+
+    all_cmb = [v for row in grid_2d for v in row]
+    absmax = max(abs(min(all_cmb)), abs(max(all_cmb)))
+
     spacing = observation_interval
+    depth_inc = depths[1] - depths[0] if n_depths > 1 else 1.0
+
+    n_cells_strike = n_pts - 1
+    n_cells_depth  = n_depths - 1
+
+    dist_max  = n_cells_strike * spacing
+    depth_max = n_cells_depth  * depth_inc
 
     with open(output_path, 'w') as out:
-        out.write('# dist_along_strike_km  depth_km  CMB_Fix\n')
-        for depth in depths:
-            pts = by_depth[depth]
-            for i, (lon, lat, cmb) in enumerate(pts):
-                dist_km = i * spacing
-                out.write(f'{dist_km:.4f}  {depth:.1f}  {cmb:.6e}\n')
+        out.write('# dist_along_strike_km  depth_km  CMB_Fix  (pixel registration)\n')
+        for j in range(n_cells_depth):        # depth index
+            for i in range(n_cells_strike):    # along-strike index
+                # Mean of the four corner data points of this cell
+                cell_val = (
+                      grid_2d[j  ][i]
+                    + grid_2d[j  ][i + 1]
+                    + grid_2d[j + 1][i]
+                    + grid_2d[j + 1][i + 1]
+                ) / 4.0
 
-    absmax = max(abs(min(all_cmb)), abs(max(all_cmb)))
-    dist_max = (n_pts - 1) * spacing
-    depth_max = max(depths)
+                # Cell centre coordinates
+                cell_x = (i + 0.5) * spacing
+                cell_y = depths[j] + depth_inc / 2.0
 
-    return dist_max, depth_max, absmax
+                out.write(f'{cell_x:.4f}  {cell_y:.4f}  {cell_val:.6e}\n')
+
+    cell_centers = (n_cells_strike, n_cells_depth)
+    return dist_max, depth_max, absmax, spacing, depth_inc, cell_centers
 
 
 def _nice_interval(data_range):
@@ -128,13 +164,12 @@ def plot_coulomb_section(cmb_min=None, cmb_max=None):
 
     depth_step, observation_interval = _read_depth_step_and_interval()
 
-    # Write the fault-plane XYZ intermediate file.
+    # Write cell-centred (pixel-registered) fault-plane XYZ.
     tmp_xyz = os.path.join(constant.OUTPUT_PREFIX, 'fault_plane.xyz')
-    dist_max, depth_max, absmax = _build_fault_plane_xyz(
-        input_xyz, tmp_xyz, observation_interval
+    dist_max, depth_max, absmax, dist_inc, depth_inc, cell_centers = (
+        _build_fault_plane_xyz(input_xyz, tmp_xyz, observation_interval)
     )
-    dist_inc = observation_interval
-    depth_inc = depth_step
+    n_cells_strike, n_cells_depth = cell_centers
 
     if cmb_min is None:
         cmb_min = -absmax
@@ -142,8 +177,8 @@ def plot_coulomb_section(cmb_min=None, cmb_max=None):
         cmb_max = absmax
 
     logger_all.logged_print(
-        f'Grid: 0–{dist_max:.0f} km along strike '
-        f'× 0–{depth_max:.0f} km depth',
+        f'Grid: {n_cells_strike}×{n_cells_depth} cells, '
+        f'{dist_max:.0f} km along strike × {depth_max:.0f} km depth',
         plot_log,
     )
     logger_all.logged_print(
@@ -164,11 +199,14 @@ def plot_coulomb_section(cmb_min=None, cmb_max=None):
             stdout=open(cpt_path, 'w'),
         )
 
-        # Grid from regular data (gridline registration).
+        # Grid from cell-centred data (pixel registration).
+        # Pixel registration: -R spans the extent of the pixel array,
+        # xyz data are at pixel centres.
         _run_gmt(
             'xyz2grd', tmp_xyz,
             f'-R0/{dist_max:.1f}/0/{depth_max:.1f}',
             f'-I{dist_inc}/{depth_inc}',
+            '-r',  # pixel registration
             f'-G{grd_path}',
         )
 
